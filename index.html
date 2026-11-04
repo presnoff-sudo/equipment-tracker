@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Учёт оборудования">
+<title>Учёт торгового оборудования</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="theme-color" content="#14171A">
+<script src="xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg: #14171A;
+  --surface: #1D2226;
+  --surface-2: #262C31;
+  --line: #333B41;
+  --text: #EDEDE9;
+  --text-dim: #9AA3AB;
+  --accent: #FF7A29;
+  --accent-dim: #7A3E17;
+  --steel: #6E96B8;
+  --ok: #4CAF6D;
+  --warn: #E0A72E;
+  --danger: #E0554A;
+  --radius: 10px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+[hidden]{display:none !important;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overscroll-behavior-y: none;
+}
+h1,h2,h3{ font-family:'Space Grotesk', sans-serif; margin:0; }
+.mono{ font-family:'IBM Plex Mono', monospace; letter-spacing: 0.01em; }
+button{ font-family: inherit; }
+
+#app{
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position: sticky; top:0; z-index:20;
+  padding: calc(14px + var(--safe-top)) 16px 12px;
+  background: linear-gradient(180deg, var(--bg) 70%, rgba(20,23,26,0));
+  display:flex; align-items:center; justify-content:space-between;
+  gap: 10px;
+}
+.topbar h1{ font-size: 20px; font-weight:700; }
+.topbar .sub{ color:var(--text-dim); font-size:12.5px; margin-top:2px; }
+.icon-btn{
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  width:40px; height:40px;
+  border-radius: 50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+  flex-shrink:0;
+}
+.icon-btn:active{ background:var(--line); }
+.back-row{ display:flex; align-items:center; gap:10px; }
+
+/* ---------- Content ---------- */
+.view{ padding: 0 16px 130px; flex:1; }
+.view[hidden]{ display:none; }
+
+/* ---------- Search / filters ---------- */
+.search-wrap{ position: relative; margin-bottom: 12px; }
+.search-wrap input{
+  width:100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 11px 14px 11px 38px;
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+.search-wrap input:focus{ outline: none; border-color: var(--steel); }
+.search-wrap .sicon{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); }
+
+.chips{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom: 14px; scrollbar-width:none; }
+.chips::-webkit-scrollbar{ display:none; }
+.chip{
+  flex-shrink:0;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.chip.active{ background: var(--accent); border-color: var(--accent); color:#1A1000; font-weight:600; }
+
+/* ---------- Equipment cards ---------- */
+.eq-card{
+  display:flex;
+  gap:12px;
+  background: var(--surface);
+  border:1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.eq-card .thumb{
+  width:64px; height:64px; border-radius:8px; object-fit:cover;
+  background: var(--surface-2); flex-shrink:0;
+}
+.eq-card .thumb.placeholder{ display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--text-dim); }
+.eq-card .info{ flex:1; min-width:0; }
+.eq-card .name{ font-size:14.5px; font-weight:600; line-height:1.3; }
+.eq-card .meta{ color:var(--text-dim); font-size:12.5px; margin-top:3px; }
+.eq-card .meta span{ display:inline-block; }
+.eq-card .row2{ display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
+.code-tag{
+  font-size:11.5px; padding:3px 7px; border-radius:5px;
+  background: var(--surface-2); color: var(--steel); border:1px solid var(--line);
+}
+.status-pill{ font-size:11px; padding:3px 8px; border-radius:999px; font-weight:600; }
+.status-in_use{ background: rgba(76,175,109,.15); color: var(--ok); }
+.status-warehouse{ background: rgba(110,150,184,.15); color: var(--steel); }
+.status-repair{ background: rgba(224,167,46,.15); color: var(--warn); }
+
+.empty-state{
+  text-align:center; padding: 60px 20px; color:var(--text-dim);
+}
+.empty-state .big{ font-size:38px; margin-bottom:10px; }
+.empty-state h3{ color:var(--text); font-size:17px; margin-bottom:6px; }
+.empty-state p{ font-size:13.5px; line-height:1.5; max-width:280px; margin:0 auto; }
+
+/* ---------- Bottom action bar ---------- */
+.bottombar{
+  position: fixed; bottom:0; left:50%; transform:translateX(-50%);
+  width:100%; max-width:560px;
+  padding: 12px 16px calc(14px + var(--safe-bottom));
+  background: linear-gradient(0deg, var(--bg) 60%, rgba(20,23,26,0));
+  display:flex; gap:10px; z-index:20;
+}
+.btn{
+  border:none; border-radius: var(--radius);
+  font-size:15px; font-weight:600;
+  padding: 14px 16px;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  cursor:pointer;
+}
+.btn:active{ transform: scale(0.98); }
+.btn-primary{ background: var(--accent); color:#1A1000; flex:1; }
+.btn-secondary{ background: var(--surface-2); color:var(--text); border:1px solid var(--line); }
+.btn-outline{ background:transparent; border:1px solid var(--line); color:var(--text); }
+.btn-block{ width:100%; }
+.btn-danger{ background: rgba(224,85,74,.15); color: var(--danger); border:1px solid rgba(224,85,74,.3); }
+.btn:disabled{ opacity:.5; }
+
+/* ---------- Forms ---------- */
+.field{ margin-bottom: 16px; }
+.field label{ display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px; }
+.field input[type=text], .field input[type=number], .field select, .field textarea{
+  width:100%; background: var(--surface); border:1px solid var(--line); color:var(--text);
+  padding: 12px 13px; border-radius: var(--radius); font-size:15px;
+}
+.field textarea{ resize: vertical; min-height:60px; font-family:inherit; }
+.field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color: var(--steel); }
+.dims-row{ display:flex; gap:8px; }
+.dims-row .field{ flex:1; margin-bottom:0; }
+.dims-row input{ text-align:center; }
+.status-select{ display:flex; gap:8px; }
+.status-opt{
+  flex:1; text-align:center; padding:10px 4px; border-radius:8px; border:1px solid var(--line);
+  background:var(--surface); font-size:12.5px; color:var(--text-dim);
+}
+.status-opt.selected{ border-color: currentColor; font-weight:600; }
+.status-opt[data-s="in_use"].selected{ color:var(--ok); background: rgba(76,175,109,.1); }
+.status-opt[data-s="warehouse"].selected{ color:var(--steel); background: rgba(110,150,184,.1); }
+.status-opt[data-s="repair"].selected{ color:var(--warn); background: rgba(224,167,46,.1); }
+
+/* ---------- Capture / photo ---------- */
+.photo-frame{
+  width:100%; aspect-ratio: 4/3; border-radius: var(--radius);
+  background: var(--surface); border:1px dashed var(--line);
+  display:flex; align-items:center; justify-content:center; flex-direction:column;
+  color: var(--text-dim); overflow:hidden; margin-bottom:16px; position:relative;
+}
+.photo-frame img{ width:100%; height:100%; object-fit:cover; }
+.photo-frame .cap-hint{ font-size:13px; margin-top:8px; }
+.photo-frame .cap-icon{ font-size:34px; }
+.retake-btn{
+  position:absolute; top:8px; right:8px; background:rgba(20,23,26,.7);
+  border:1px solid var(--line); color:var(--text); border-radius:8px; padding:6px 10px; font-size:12px;
+}
+
+.analyzing{
+  display:flex; align-items:center; gap:10px; padding:12px 14px;
+  background: var(--surface); border:1px solid var(--line); border-radius: var(--radius);
+  margin-bottom:16px; font-size:13.5px; color:var(--text-dim);
+}
+.spinner{
+  width:16px; height:16px; border-radius:50%;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite; flex-shrink:0;
+}
+@keyframes spin{ to{ transform: rotate(360deg); } }
+
+.match-card{
+  background: var(--surface); border:1px solid var(--accent-dim); border-radius: var(--radius);
+  padding:13px 14px; margin-bottom:16px;
+}
+.match-card .label{ font-size:11.5px; color:var(--accent); text-transform:none; font-weight:600; margin-bottom:4px; }
+.match-card .mname{ font-size:14.5px; font-weight:600; margin-bottom:4px; }
+.match-card .mcode{ color:var(--steel); font-size:13px; }
+.candidate-list{ margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+.candidate{
+  display:flex; justify-content:space-between; align-items:center;
+  background: var(--surface-2); border:1px solid var(--line); border-radius:8px;
+  padding:9px 11px; font-size:13px;
+}
+.candidate.chosen{ border-color: var(--accent); }
+.candidate .cdims{ color:var(--text-dim); font-size:12px; }
+
+.catalog-picker-item{
+  padding:11px 12px; border-bottom:1px solid var(--line); font-size:13.5px;
+}
+.catalog-picker-item:active{ background: var(--surface-2); }
+
+.section-label{
+  font-size:12px; color:var(--text-dim); font-weight:600; margin: 18px 0 8px;
+}
+
+.notice{
+  font-size:12.5px; color:var(--text-dim); line-height:1.5;
+  background: var(--surface); border:1px solid var(--line); border-radius: var(--radius);
+  padding:11px 13px; margin-bottom:16px;
+}
+.notice b{ color:var(--text); }
+.notice.warn{ border-color: rgba(224,167,46,.4); }
+.notice a{ color: var(--steel); }
+
+/* ---------- Modal / sheet ---------- */
+.sheet-backdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:40;
+  display:flex; align-items:flex-end;
+}
+.sheet-backdrop[hidden]{ display:none; }
+.sheet{
+  background: var(--bg); width:100%; max-width:560px; margin:0 auto;
+  border-radius: 16px 16px 0 0; padding: 16px 16px calc(20px + var(--safe-bottom));
+  max-height: 88vh; overflow-y:auto;
+}
+.sheet-handle{ width:36px; height:4px; background:var(--line); border-radius:2px; margin:0 auto 14px; }
+
+/* toast */
+.toast{
+  position:fixed; bottom: calc(90px + var(--safe-bottom)); left:50%; transform:translateX(-50%);
+  background: var(--surface-2); border:1px solid var(--line); color:var(--text);
+  padding:10px 16px; border-radius:999px; font-size:13.5px; z-index:60;
+  opacity:0; transition: opacity .2s; pointer-events:none;
+}
+.toast.show{ opacity:1; }
+
+.stat-row{ display:flex; gap:10px; margin-bottom:16px; }
+.stat-box{
+  flex:1; background:var(--surface); border:1px solid var(--line); border-radius: var(--radius);
+  padding:12px; text-align:center;
+}
+.stat-box .n{ font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; }
+.stat-box .l{ font-size:11px; color:var(--text-dim); margin-top:2px; }
+
+.hit{ align-items:center; cursor:pointer; }
+.hit-add{ color:var(--accent); font-size:24px; padding:0 6px; }
+::placeholder{ color: #6C7680; }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== VIEW: LIST ===== -->
+  <div class="view" id="view-list">
+    <div class="topbar">
+      <div>
+        <h1>Оборудование</h1>
+        <div class="sub" id="list-sub">0 позиций</div>
+      </div>
+      <button class="icon-btn" id="btn-export" title="Экспорт в Excel">⬇</button>
+    </div>
+
+    <div class="search-wrap">
+      <span class="sicon">⌕</span>
+      <input type="text" id="search-input" enterkeyhint="search" autocomplete="off" placeholder="Поиск: свой список и каталог (название, код)">
+    </div>
+
+    <div class="chips" id="filter-store-chips"></div>
+    <div class="chips" id="filter-status-chips">
+      <div class="chip active" data-status="all">Все статусы</div>
+      <div class="chip" data-status="in_use">В эксплуатации</div>
+      <div class="chip" data-status="warehouse">На складе</div>
+      <div class="chip" data-status="repair">Требует ремонта</div>
+    </div>
+
+    <div id="stat-row" class="stat-row"></div>
+
+    <div id="eq-list"></div>
+    <div id="catalog-hits"></div>
+    <div class="empty-state" id="empty-state" hidden>
+      <div class="big">📦</div>
+      <h3>Список пуст</h3>
+      <p>Сфотографируйте оборудование — приложение определит тип, габариты и номер по каталогу.</p>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: CAPTURE / ADD ===== -->
+  <div class="view" id="view-add" hidden>
+    <div class="topbar">
+      <div class="back-row">
+        <button class="icon-btn" id="btn-add-back">←</button>
+        <h1 style="font-size:17px">Новое оборудование</h1>
+      </div>
+    </div>
+
+    <div class="photo-frame" id="photo-frame">
+      <div id="photo-placeholder">
+        <div class="cap-icon">📷</div>
+        <div class="cap-hint">Сфотографировать оборудование</div>
+      </div>
+      <img id="photo-preview" hidden>
+      <button class="retake-btn" id="btn-retake" hidden>Переснять</button>
+    </div>
+    <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+
+    <div class="analyzing" id="analyzing-row" hidden>
+      <div class="spinner"></div>
+      <span id="analyzing-text">Определяю тип и размеры…</span>
+    </div>
+
+    <div class="match-card" id="match-card" hidden>
+      <div class="label">Похоже на</div>
+      <div class="mname" id="match-name">—</div>
+      <div class="mcode mono" id="match-code">—</div>
+      <div class="candidate-list" id="candidate-list"></div>
+    </div>
+
+    <div class="notice" id="no-key-notice" hidden>
+      <b>Автораспознавание недоступно.</b> Чтобы приложение определяло тип и размеры по фото, добавьте свой ключ Anthropic API в настройках. Можно продолжить и заполнить карточку вручную.
+    </div>
+
+    <div class="section-label">Данные оборудования</div>
+
+    <div class="field">
+      <label>Тип оборудования</label>
+      <input type="text" id="f-name" list="catalog-names" placeholder="Например: Полка базовая F50 с бортом">
+      <datalist id="catalog-names"></datalist>
+    </div>
+
+    <div class="field">
+      <label>Размеры, мм (Ш × Г × В)</label>
+      <div class="dims-row">
+        <input type="number" id="f-dim-l" placeholder="Ш">
+        <input type="number" id="f-dim-p" placeholder="Г">
+        <input type="number" id="f-dim-h" placeholder="В">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Заводской номер по каталогу</label>
+      <input type="text" class="mono" id="f-code" placeholder="Не определён — выберите совпадение выше">
+    </div>
+
+    <button class="btn btn-secondary btn-block" id="btn-open-catalog" style="margin-bottom:16px;">Найти в каталоге вручную</button>
+
+    <div class="field">
+      <label>Магазин / адрес</label>
+      <input type="text" id="f-store" list="store-list" placeholder="Например: Леман Про, просп. Лихачёва 15">
+      <datalist id="store-list"></datalist>
+    </div>
+
+    <div class="field">
+      <label>Зона / категория</label>
+      <input type="text" id="f-zone" placeholder="Например: зеркала, напольные покрытия">
+    </div>
+
+    <div class="dims-row" style="margin-bottom:16px;">
+      <div class="field">
+        <label>Количество</label>
+        <input type="number" id="f-qty" value="1" min="1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Статус</label>
+      <div class="status-select">
+        <div class="status-opt selected" data-s="in_use">В эксплуатации</div>
+        <div class="status-opt" data-s="warehouse">На складе</div>
+        <div class="status-opt" data-s="repair">Требует ремонта</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Комментарий</label>
+      <textarea id="f-comment" placeholder="Необязательно"></textarea>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: SETTINGS ===== -->
+  <div class="view" id="view-settings" hidden>
+    <div class="topbar">
+      <div class="back-row">
+        <button class="icon-btn" id="btn-settings-back">←</button>
+        <h1 style="font-size:17px">Настройки</h1>
+      </div>
+    </div>
+
+    <div class="section-label">Распознавание по фото</div>
+    <div class="notice">
+      Распознавание типа и размеров оборудования по фото выполняется через Anthropic API (Claude с поддержкой изображений). Ключ хранится только на этом устройстве и никуда, кроме api.anthropic.com, не отправляется. Получить ключ можно на <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Запросы к API оплачиваются с вашего аккаунта.
+    </div>
+    <div class="field">
+      <label>Anthropic API-ключ</label>
+      <input type="text" id="f-apikey" placeholder="sk-ant-...">
+    </div>
+    <button class="btn btn-primary btn-block" id="btn-save-key">Сохранить ключ</button>
+
+    <div class="section-label">Каталог</div>
+    <div class="notice">
+      В приложение встроен каталог оборудования ИТАБ (F50): <b id="catalog-count">—</b> позиций с заводскими номерами, распознанных из PDF. Часть названий может быть неполной — при необходимости поправьте вручную.
+    </div>
+
+    <div class="section-label">Данные</div>
+    <button class="btn btn-outline btn-block" id="btn-export-2" style="margin-bottom:10px;">Экспортировать всё в Excel</button>
+    <button class="btn btn-danger btn-block" id="btn-clear-all">Очистить весь список</button>
+  </div>
+
+  <!-- ===== VIEW: DETAIL ===== -->
+  <div class="view" id="view-detail" hidden>
+    <div class="topbar">
+      <div class="back-row">
+        <button class="icon-btn" id="btn-detail-back">←</button>
+        <h1 style="font-size:17px">Карточка</h1>
+      </div>
+      <button class="icon-btn" id="btn-detail-delete" title="Удалить">🗑</button>
+    </div>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- ===== BOTTOM BAR (list view only) ===== -->
+  <div class="bottombar" id="bottombar-list">
+    <button class="btn btn-secondary" id="btn-open-settings">⚙</button>
+    <button class="btn btn-primary" id="btn-open-add">📷 &nbsp;Добавить оборудование</button>
+  </div>
+
+  <div class="bottombar" id="bottombar-add" hidden>
+    <button class="btn btn-secondary" id="btn-cancel-add">Отмена</button>
+    <button class="btn btn-primary" id="btn-save-eq">Сохранить</button>
+  </div>
+
+</div>
+
+<!-- ===== CATALOG PICKER SHEET ===== -->
+<div class="sheet-backdrop" id="catalog-sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="search-wrap">
+      <span class="sicon">⌕</span>
+      <input type="text" id="catalog-search" enterkeyhint="search" autocomplete="off" placeholder="Название или код, можно несколько слов">
+    </div>
+    <div id="catalog-results"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+window.__CATALOG__ = {"names":["Стойка F50 с 2-сторонней перфорацией с шагом 50 мм","Удлинитель для стойки","Н’ CODE","Окрашенный листовой металл","База F50 140H мм, с 2-мя регулируемыми ножками","Панель задняя 100H мм, крепится на стойку F50 Съемная","Панель задняя 400H мм, крепится на стойку F50 (Съемная)","Экономпанель 100H мм, с пазами для вывода кабеля, крепится на стойку","Экономпанель усиленная 100H мм, крепится на стойку","Европанель перфорированная задняя 400H мм, крепится на стойку F 50","Пара перекладин экспо (верхняя и нижняя) для рекламной панели, крепятся на стойку","Полка перфорированная F50, с креплением для ценникодержателя","Полка базовая F50 с бортом","Полка стеклянная F50, с кронштейнами и поддержкой","Пара кронштейнов усиленных, крепление на стойку","Профиль фронтальный перфорированный для установки разделителей","Ограничитель фронтальный из оргстекла","Витрина с 2-мя боковыми металлическими стенками и стеклянными дверцами","Витрина промежуточная со стекляннми дверцами(без боковых стенок)","Витрина базовая, с 2-мя боковыми металлическими стенками и стеклянными дверцами","Витрина базовая промежуточная со стеклянными дверцами (без боковых стенок)","Панель соединительная 100Н мм для торцевого стеллажа F50, в комплекте с крепежной","Суппорт-балка для соединения островного стеллажа и торцевой секции","Профиль с 2-сторонней перфорацией для полукруглого торцевого стеллажа, крепится 1","Полукруглый торцевой стеллаж в комплекте с металлической базовой полкой и","Перекладина 30х20 мм с кронштейнами, крепится на стойку","Перекладина перфорированная 50х20 мм с выносом, с кронштейнами, крепится на стойк","Крючок одинарный, крепится на перекладину 30х20 и 50х20 мм 6","Разделитель проволочный, крепится на перфорированную перекладину или 8","Вешало прямое, с металлической площадкой 52х30H мм для ценника, крепится 20 500 A","Вешало наклонное, со штырями, с металлической площадкой 52х30H мм для ценника, 20","Держатель для информационной таблички, крепится на экономпанель","Пара держателей для образцов столешниц, крепится на экономпанель","Полка с фронтальным ограничителем, крепится на экономпанель","Ящик металлический для рейлингов","Крючок проволочный для зеркала с выносом 15 мм, крепится на экономпанель","Крючок для постеров, крепится на перфорированную перекладину 50х20 мм","Пара суппортов для радиатора, в комплекте с крепежом, крепится на экономпанель F5","Держатель для водонагревателей, крепится на перекладину 50х20 мм","Держатель для фрезы, крепится на перекладину 50х20 мм","Держатель верхний для электропилы, крепится на перекладину 50х20 мм 8","Держатель для рукояток садовых инструментов, крепится на перекладину 50х20 мм 60","Пара суппортов для рамок в комплекте с противоскользящей лентой","Набор профилей (верхний и нижний) для панели ДСП, крепится на балку 60x40","Держатель образца обоев, крепится на полку, в комплекте с крепежом","Экспозитор с 10 вращающимися рамками для обоев","Рама односторонняя, комплектуется 2-мя стойками, траверсами и диагоналями","Рама односторонняя, комплектуется 2-мя стойками, траверсами и диагоналями 55","Суппорт для образцов столешниц, крепится на панель для аксессуаров","Панель ДСП, установленная на балки 40 мм, в комплекте с крепежом","Панель ДСП, установленная на балки 40 мм, в комплекте с крепежом 1000 1250 R6287/","Панель задняя 100H мм, крепится на стойку F50 (Съемная)","Набор боковых панелей для стенда для паркета","Стенд односторонний для напольной плитки Начальный 1000 1090 4500 4","Стенд двусторонний для напольной плитки Начальный 1000 4500 4","Стенд для настенной плитки Начальный 1000 1090 3500 2","Набор боковых панелей для настенной плитки","Выдвижная металлическая полка для стенда для настенной плитки Начальный","Стойка с приваренной базовой пластиной в комплекте с подкладкой и анкерами","Рамка под образец плитки, устанавливается на панель ДСП","Рама односторонняя, комплектуется 2-мя стойками","Рама односторонняя, комплектуется стойкой с односторонней перфорацией с","Рама односторонняя, комплектуется двумя стойками с односторонней перфорацией с","Рама островного стеллажа Р 1050 мм, комплектуется 2-мя стойками с односторонней 5","Рама островного стеллажа Р 1150 мм, комплектуется 2-мя стойками с односторонней п","Рама островного стеллажа Р 1250 мм, комплектуется 2-мя стойками с односторонней п","Рама островного стеллажа Р 1350 мм, комплектуется 2-мя стойками с односторонней п","Рама островного стеллажа Р 1450 мм, комплектуется 2-мя стойками с односторонней п","Рама островного стеллажа Р 1550 мм, комплектуется 2-мя стойками с односторонней п","Рама островного стеллажа с центральными адаптерами F50, с 2-мя стойками c односто","Рама асимметричная двухуровневая с 2-мя стойками с односторонней перфорацией F 50","Рама асимметричная двухуровневая с 2-мя центральными адаптерами F50, с 2-мя стойк","Рама асимметричная двухуровневая с 2-мя","Балка реверсивная 60х40 мм, прямоугольного сечения, с 2-мя фиксаторами","Балка реверсивная 140х40 мм, прямоугольного сечения, в комплекте с 2-мя фиксатора","Балка поперечная, прямоугольного сечения, для установки деревянной полки 18Н мм","Полка перфорированная оцинкованная (189 мм), крепится на L профиль","Перекладина L-образная ВЕРХНЯЯ для установки панелей, крепится на стойки F50, в","Перекладина L-образная ВЕРХНЯЯ для установки панелей,крепится на стойки рамы","Перекладина L-образная ВЕРХНЯЯ для установки панелей, крепится на адаптеры F50, в","Перекладина L-образная ВЕРХНЯЯ с выносом для установки панелей, 2666 50 105 100 R","Заглушка металлическая для стойки рамы","Ограничитель напольный, в комплекте с крепежом","Универсальное крепление для аксессуаров, крепится на балку","Разделитель, крепится на балку с прямоугольным сечением, в комплекте с крепежом 3","Разделитель металлический, устанавливается на полку ДСП","Отбойник фронтальный для стойки рамы","Пара межрамных соединителей, в комплекте с крепежом 200/400","Связь жесткости вертикальная","Дверца с перфорированной панелью в комплекте с крепежом, крепится на две балки Р4","Кронштейн для базовой полки, крепится на раму","Опора поперечная для установки деревянной полки, в комплекте с суппортом для фикс","Балка VPA 160х50 мм, прямоугольного сечения, в комплекте с 2-мя фиксаторами","Полка перфорированная оцинкованная (189 мм), крепится на L профиль","Балка VPA 60x40 с выносом"],"rows":[[0,"30x80x310","R50_10111"],[0,"30x80x510","R50_10302"],[0,"30x80x610","R50_10112"],[0,"30x80x710","R50_10301"],[0,"30x80x810","R50_10107"],[0,"30x80x910","R50_10113"],[0,"30x80x1010","R50_10114"],[0,"30x80x1060","R50_10115"],[0,"30x80x1110","R50_10068"],[0,"30x80x1210","R50_10116"],[0,"30x80x1310","R50_10117"],[0,"30x80x1410","R50_10118"],[0,"30x80x1510","R50_10119"],[0,"30x80x1610","R50_10120"],[0,"30x80x1710","R50_10121"],[0,"30x80x1810","R50_10122"],[0,"30x80x1910","R50_10069"],[0,"30x80x2010","R50_10123"],[0,"30x80x2110","R50_10124"],[0,"30x80x2210","R50_10125"],[0,"30x80x2260","R50_10108"],[0,"30x80x2310","R50_10126"],[0,"30x80x2410","R50_10127"],[0,"30x80x2510","R50_10128"],[0,"30x80x2610","R50_10129"],[0,"30x80x2710","R50_10067"],[0,"30x80x2810","R50_10130"],[0,"30x80x2910","R50_10131"],[0,"30x80x3010","R50_10132"],[0,"30x80x3110","R50_10099"],[0,"30x80x3210","R50_10090"],[0,"30x80x3310","R50_10133"],[0,"30x80x3410","R50_10070"],[0,"30x80x3510","R50_10134"],[0,"30x80x3610","R50_10046"],[0,"30x80x3710","R50_10135"],[0,"30x80x3810","R50_10136"],[0,"30x80x4010","R50_10072"],[0,"30x80x4210","R50_10071"],[0,"30x80x4310","R50_10137"],[0,"30x80x4410","R50_10138"],[0,"30x80x4510","R50_10139"],[0,"30x80x5010","R50_10324"],[0,"30x110x1410","R50_10140"],[0,"30x110x1610","R50_10141"],[0,"30x110x1810","R50_10142"],[0,"30x110x2010","R50_10143"],[0,"30x110x2210","R50_10144"],[0,"30x110x2410","R50_10145"],[0,"30x110x2510","R50_10187"],[0,"30x110x2710","R50_10322"],[0,"30x110x2910","R50_10146"],[0,"30x110x3010","R50_10306"],[0,"30x110x3310","R50_10307"],[0,"30x110x3510","R50_10147"],[0,"30x110x3710","R50_10359"],[0,"30x110x4010","R50_10148"],[0,"30x110x4210","R50_10262"],[0,"30x110x4310","R50_10308"],[0,"30x110x4510","R50_10149"],[0,"30x110x4810","R50_10323"],[0,"30x110x5010","R50_10150"],[0,"30x110x5510","R50_10353"],[0,"90x30","R50_90397"],[1,"30x80x200","R50_10334"],[1,"30x80x300","R50_10338"],[1,"30x80x500","R50_10293"],[1,"30x80x600","R50_10078"],[1,"30x80x700","R50_10313"],[1,"30x80x1000","R50_10295"],[1,"30x110x300","R50_10310"],[1,"30x110x500","R50_10083"],[1,"30x110x700","R50_10186"],[1,"30x110x800","R50_10086"],[1,"30x110x1000","R50_10179"],[1,"30x55","A50_10059"],[1,"30x80","A50_80115"],[1,"30x110","R50_81923"],[1,"50x90","A50_10062"],[2,"770x50x1460","R50_91540"],[2,"470x60x1270","R50_92985"],[2,"470x60x2270","R50_91462"],[2,"470x60x2970","R50_91091"],[2,"570x60x970","R50_93029"],[2,"470x80x1290","R50_90429"],[2,"470x80x1690","R50_90430"],[2,"570x80x1490","R50_90431"],[2,"570x80x2340","R50_90277"],[2,"670x80x2390","R50_90432"],[2,"670x80x2590","R50_90433"],[2,"670x80x3090","R50_90434"],[2,"470x50x1460","R50_91689"],[2,"470x50x2260","R50_91690"],[2,"470x60x2960","R50_90973"],[2,"570x60x2960","R50_91347"],[2,"570x60x1270","R50_92982"],[2,"470x80x1290","R50_90417"],[2,"470x80x1490","R50_90418"],[2,"470x80x1690","R50_90419"],[2,"470x80x1890","R50_90420"],[2,"670x80x1410","R50_91575"],[2,"670x80x2390","R50_90121"],[2,"670x80x2590","R50_90422"],[3,"30x30x610","R50_10184"],[3,"30x30x710","R50_10304"],[3,"30x30x810","A50_10270"],[3,"30x30x910","R50_10303"],[3,"30x30x1010","A50_10221"],[3,"30x30x1110","A50_10234"],[3,"30x30x1210","R50_10066"],[3,"30x30x1310","R50_10098"],[3,"30x30x1410","A50_10094"],[3,"30x30x1460","A50_10033"],[3,"30x30x1510","R50_10191"],[3,"30x30x1610","R50_10045"],[3,"30x30x1710","R50_10104"],[3,"30x30x1810","A50_10236"],[3,"30x30x1910","R50_10193"],[3,"30x30x2010","A50_10056"],[3,"30x30x2210","A50_10034"],[3,"30x30x2510","R50_10190"],[3,"30x30x2610","R50_10192"],[3,"30x30x3010","R50_10291"],[3,"30x30x3210","R50_10189"],[3,"30x30x4010","R50_10096"],[3,"30x30","A50_80471"],[3,"80x80","R50_81204"],[3,"69,5","A50_90101"],[4,"270x140","R50_10209"],[4,"370x140","A50_10049"],[4,"470x140","A50_10015"],[4,"570x140","A50_10021"],[4,"670x140","A50_10050"],[4,"770x140","A50_10051"],[4,"870x140","A50_10154"],[4,"100x140","R50_91365"],[4,"300x140","R50_92432"],[4,"30x100x50","A50_90032"],[4,"30x300x50","R50_91497"],[4,"30x100x80","R50_91845"],[4,"30x200x80","R50_91976"],[5,"665x100","A50_40008A"],[5,"1000x100","A50_40009A"],[5,"1250x100","A50_40010A"],[5,"1333x100","A50_40130"],[5,"665x140","A50_60304"],[5,"1000x140","A50_60305A"],[5,"1250x140","A50_60306"],[5,"1333x140","A50_60682"],[5,"665x80","A50_60456"],[5,"1000x80","A50_60365"],[5,"1250x80","A50_60457"],[5,"1333x80","A50_60736"],[5,"60x45x140","A50_50092"],[6,"665x400","A50_40000"],[6,"1000x400","A50_40001"],[6,"1250x400","A50_40002"],[6,"1333x400","A50_40126"],[6,"400","R50_40064"],[6,"400","R50_40065"],[6,"400","R50_40244"],[6,"665x100","A50_40008A"],[6,"1000x100","A50_40009A"],[6,"1250x100","A50_40010A"],[6,"1333x100","A50_40130"],[6,"100","R50_40128"],[6,"100","R50_40071"],[6,"100","R50_40241"],[6,"665x100","R50_40004"],[6,"1000x100","A50_40023"],[6,"1250x100","R50_40005"],[6,"1333x100","A50_40110"],[6,"665x100","R50_40234"],[6,"1000x100","R50_40213"],[6,"1250x100","R50_40216"],[6,"1333x100","R50_40215"],[7,"665x100","A50_40071"],[7,"50x1000x100","A50_40029"],[7,"1250x100","A50_40069"],[7,"1333x100","A50_40165"],[7,"665x100","R50_40126"],[7,"1000x100","R50_40125"],[7,"665x100","R50_40218"],[7,"1000x100","R50_40192"],[7,"1250x100","R50_40217"],[7,"1333x100","R50_40214"],[7,"665x100","A50_40024"],[7,"50x1000x100","A50_40025"],[7,"1250x100","A50_40026"],[7,"1333x100","A50_40139"],[7,"1000x100","A50_40029"],[7,"1000x100","A50_40025"],[8,"665x100","R50_40229"],[8,"50x1000x100","R50_40230"],[8,"1250x100","R50_40231"],[8,"1333x100","R50_40233"],[8,"1000x100","R50_40230"],[9,"665x390","A50_40065"],[9,"50x1000x390","A50_40066"],[9,"1250x390","A50_40067"],[9,"665x390","A50_40081"],[9,"50x1000x390","A50_40082"],[9,"1250x390","A50_40083"],[9,"1333x390","R50_40239"],[9,"665x200","A50_40061"],[9,"50x1000x200","A50_40062"],[9,"1250x200","A50_40063"],[9,"1000x390","A50_40066"],[9,"1000x390","A50_40082"],[9,"1000x200","A50_40062"],[10,"665","A50_81035"],[10,"50x1000","A50_80942"],[10,"1250","A50_80943"],[10,"1333","R50_80674"],[10,"665","R50_82097"],[10,"1000","R50_82098"],[10,"1250","R50_82099"],[10,"1333","R50_82100"],[10,"665x80x16","A50_80256"],[10,"1000x80x16","A50_80003"],[10,"1250x80x16","A50_80004"],[10,"1333x80x16","A50_82003"],[10,"665x110x16","A50_80268"],[10,"1000x110x16","A50_80269"],[10,"1250x110x16","A50_80270"],[10,"1000","A50_80942"],[11,"665x200x25","R25_50330"],[11,"1000x200x25","R25_50333"],[11,"1250x200x25","R25_50335"],[11,"1333x200x25","R25_50337"],[11,"370x25","A50_50214"],[11,"470x25","A50_50204"],[11,"570x25","R50_50218"],[11,"670x25","R50_50219"],[11,"770x25","R50_50463"],[11,"370x25x1000","R50_50192"],[11,"470x25x1000","R50_50193"],[11,"570x25x1000","R50_50047"],[11,"670x25x1000","R50_50109"],[11,"770x25x1250","R50_50403"],[12,"1000x370x120","R50_50222"],[12,"1000x470x120","A50_50095"],[12,"1250x470x120","A50_50358"],[12,"1000x570x120","A50_50096"],[12,"1250x570x120","A50_50359"],[12,"1333x570x120","A50_50361"],[12,"1000x670x120","A50_50229"],[12,"1250x670x120","A50_50522"],[12,"1333x670x120","R50_50229"],[12,"665x770x120","R50_50227"],[12,"1000x770x120","A50_50340"],[12,"1250x770x120","R50_50297"],[12,"1333x770x120","R50_50249"],[12,"1000x870x120","R50_50165"],[12,"665x370x70","R50_50225"],[12,"1000x370x70","R50_50208"],[12,"1250x370x70","R50_50211"],[12,"665x470x70","R50_50206"],[12,"1000x470x70","R50_50209"],[12,"1250x470x70","R50_50212"],[12,"665x570x70","R50_50207"],[12,"1000x570x70","R50_50210"],[12,"1250x570x70","R50_50213"],[12,"30x665x400","R50_92227"],[12,"30x1000x400","R50_92099"],[12,"1250x400","R50_92226"],[12,"2000x400","R50_92100"],[12,"1000x470","R50_92101"],[12,"1250x470","R50_92369"],[12,"2000x470","R50_92102"],[12,"1000x570","R50_92340"],[12,"1250x570","R50_92315"],[12,"2000x570","R50_92313"],[12,"665x400","R50_92227"],[12,"1000x400","R50_92099"],[13,"665x270","R50_50022"],[13,"1000x270","R50_50023"],[13,"1250x270","R50_50024"],[13,"1333x270","R50_50310"],[13,"665x370","R50_50019"],[13,"1000x370","R50_50020"],[13,"1250x370","R50_50021"],[13,"1333x370","R50_50298"],[13,"665x470","R50_50025"],[13,"1000x470","R50_50026"],[13,"1250x470","R50_50027"],[13,"1333x470","R50_50299"],[13,"665x570","R50_50017"],[13,"1000x570","R50_50018"],[13,"1333x570","R50_50311"],[13,"370","R50_50028"],[13,"370","R50_50029"],[13,"170x50","A50_30246"],[13,"50x200x50","R50_30327"],[13,"270x50","A50_30071"],[13,"300x50","A50_30052"],[13,"370x50","R50_30257"],[13,"470x50x190","A50_30054"],[13,"570x50x190","A50_30055"],[13,"670x50x150","R50_30040"],[13,"770x50x130","R50_30055"],[13,"670x50","A50_30231"],[13,"670x50","A50_30232"],[13,"770x50","A50_30204"],[13,"770x50","A50_30205"],[13,"670x50","A50_30233"],[13,"770x50","A50_30206"],[13,"200x50","R50_30327"],[14,"570x200","R50_30113"],[14,"50x670x200","A50_30221"],[14,"770x200","A50_30222"],[14,"370","R50_30041"],[14,"50x470","A50_30223"],[14,"570","A50_30224"],[14,"670","A50_30225"],[14,"770","A50_30226"],[14,"870","A50_30227"],[14,"670","R50_30092"],[14,"670","R50_30093"],[14,"450","R50_30129"],[14,"50x550","R50_30237"],[14,"650","R50_30292"],[14,"750","R50_30287"],[14,"20x270","R50_30296"],[14,"370","A50_30344"],[14,"470","A50_30211"],[14,"570","A50_30209"],[14,"670","A50_30345"],[14,"670x200","A50_30221"],[14,"470","A50_30223"],[14,"550","R50_30237"],[14,"270","R50_30296"],[15,"330x10x19","R50_60748"],[15,"500x10x19","R50_60731"],[15,"665x10x19","R50_60695"],[15,"1000x10x19","R50_60696"],[15,"1250x10x19","R50_60697"],[15,"1333x10x19","R50_60699"],[15,"330x15x50","R50_60749"],[15,"500x15x50","R50_60732"],[15,"665x15x50","R50_60720"],[15,"1000x15x50","R50_60721"],[15,"1250x15x50","R50_60722"],[15,"1333x15x50","R50_60724"],[15,"200x55","R50_92772"],[15,"50x270x55","R50_93459"],[15,"370x55","A50_90085"],[15,"470x55","A50_90086"],[15,"570x55","A50_90087"],[15,"670x55","A50_90088"],[15,"770x55","A50_90089"],[15,"55","R50_93484"],[15,"55","A50_90081"],[15,"55","A50_90082"],[15,"55","A50_90083"],[15,"55","A50_90084"],[15,"55","A50_90780"],[15,"55","R50_91884"],[15,"55","R50_91885"],[15,"55","R50_91491"],[15,"55","R50_91566"],[15,"270x55","R50_93459"],[16,"665x67","R50_60015"],[16,"1000x67","R50_60008"],[16,"1250x67","R50_60182"],[16,"1333x67","R50_60239"],[16,"665x100","R50_60026"],[16,"1000x100","A50_60350"],[16,"665x30","G25_60274"],[16,"1000x30","G25_60276"],[16,"1250x30","G25_60277"],[16,"1333x30","G25_60278"],[17,"1000x470x400","R50_91141"],[17,"1000x470x600","R50_91041"],[17,"1000x470x800","R50_90336"],[17,"1000x470x1000","R50_90338"],[17,"1250x470x1000","R50_91600"],[17,"1000x570x1000","R50_90342"],[17,"1000x670x1000","R50_90344"],[17,"1000x370x1150","R50_90924"],[17,"1000x470x1150","R50_90925"],[17,"1000x470x1200","R50_90340"],[17,"1333x470x1200","R50_91511"],[17,"1333x570x1200","R50_91898"],[17,"1000x570x1500","R50_91555"],[17,"1000x770x1500","R50_91592"],[18,"1250x470x800","R50_91068"],[18,"1000x470x1000","R50_90339"],[18,"1000x570x1000","R50_90343"],[18,"1000x670x1000","R50_90345"],[18,"1000x470x1150","R50_91326"],[18,"1000x470x1200","R50_90341"],[18,"1000x570x1200","R50_90975"],[18,"1000x470x1500","R50_90590"],[18,"1000x570x1500","R50_91556"],[18,"1000x770x1500","R50_91593"],[19,"1000x570x600","R50_91522"],[19,"1000x370x1000","R50_90906"],[19,"665x470x1000","R50_90346"],[19,"1000x470x1000","R50_90348"],[19,"1000x570x1000","R50_91524"],[19,"1000x670x1000","R50_90350"],[19,"1000x470x1000","R50_92746"],[19,"1000x570x1000","R50_92470"],[19,"1000x670x1000","R50_92741"],[19,"1333x570x1000","R50_92710"],[20,"1000x570x600","R50_91523"],[20,"665x470x1000","R50_90347"],[20,"1000x470x1000","R50_90349"],[20,"1000x570x1000","R50_91525"],[20,"1000x670x1000","R50_90351"],[20,"1000x470x1000","R50_92745"],[20,"1000x570x1000","R50_92471"],[20,"1333x570x1000","R50_92711"],[21,"665x100","A50_81179"],[21,"1000x100","A50_81176"],[21,"1250x100","A50_81177"],[21,"1333x100","A50_82295"],[21,"665x80","A50_80256"],[21,"50x1000x80","A50_80003"],[21,"1250x80","A50_80004"],[21,"1333x80","A50_82003"],[21,"665x110","A50_80268"],[21,"1000x110","A50_80269"],[21,"1250x110","A50_80270"],[21,"665","R50_81097"],[21,"1000","R50_82108"],[21,"1000x80","A50_80003"],[22,"665x574","R50_80469"],[22,"1000x974","R50_80881"],[22,"1000x1150","R50_80338"],[22,"1250x1150","R50_80771"],[22,"674","R50_81159"],[22,"574","R50_80932"],[22,"1333x1348","R50_80944"],[22,"674","R50_80996"],[22,"674","R50_81066"],[22,"774","R50_81150"],[22,"774","R50_81889"],[22,"1333x1350","R50_80944"],[22,"674","R50_81107"],[22,"774","R50_81108"],[22,"574","R50_80996"],[22,"774","R50_82324"],[22,"1074","R50_81916"],[22,"974","R50_81334"],[22,"974","R50_80860"],[22,"974","R50_81882"],[22,"1174","R50_81725"],[22,"1074","R50_82332"],[22,"1174","R50_81883"],[22,"774","R50_81431"],[22,"774","R50_81331"],[22,"974","R50_81901"],[22,"874","R50_81898"],[22,"774","R50_81898"],[22,"974","R50_81331"],[22,"874","R50_81331"],[22,"674","R50_81140"],[22,"1074","R50_81917"],[22,"974","R50_82261"],[22,"774","R50_81936"],[22,"1174","R50_82258"],[22,"670","R50_81814"],[22,"574","R50_82487"],[22,"674","R50_82400"],[22,"774","R50_82106"],[22,"774","R50_81907"],[22,"1174","R50_81933"],[23,"1200","R50_10199"],[23,"1400","A50_10086"],[23,"1700","R50_10202"],[23,"1800","R50_10205"],[23,"270","A50_50088"],[23,"370","R50_50030"],[23,"470","R50_50031"],[23,"570","R50_50063"],[23,"370","A50_50148"],[23,"470","A50_50149"],[23,"570","A50_50150"],[23,"270","R50_30187"],[23,"370","A50_30202"],[23,"470","A50_30169"],[23,"570","A50_30166"],[23,"470x80","A50_50082"],[23,"570x80","A50_50196"],[23,"370x140","A50_50348"],[23,"470x140","A50_50221"],[23,"570x140","A50_50157"],[23,"470x80","A50_60471"],[23,"570x80","A50_60380"],[23,"470x140","A50_60474"],[23,"570x140","A50_60310"],[24,"470x370x370","R50_50032"],[24,"470x370x370","R50_50465"],[24,"370x270x270","R50_50464"],[25,"665","A50_60000"],[25,"50x1000","A50_60001"],[25,"1250","A50_60002"],[25,"1333","A50_60523"],[25,"665","A50_60008"],[25,"50x1000","A50_60009"],[25,"1250","A50_60010"],[25,"1333","A50_60524"],[25,"665x100","A50_60012"],[25,"50x1000x100","A50_60013"],[25,"1225x100","A50_60014"],[25,"1333x100","A50_60525"],[25,"665x200","A50_60016"],[25,"1000x200","A50_60017"],[25,"1225x200","A50_60018"],[25,"1333x200","A50_60526"],[25,"1000","A50_60001"],[25,"1000","A50_60009"],[25,"1000x100","A50_60013"],[26,"2000x200","R50_60035"],[26,"50x2666x200","R50_60170"],[26,"3000x200","R50_60053"],[26,"665x300","A50_60166"],[26,"1000x300","A50_60167"],[26,"82167x1250x300","A50_60168"],[26,"82167x1333x300","A50_60689"],[26,"82167x665x400","A50_60169"],[26,"1000x400","A50_60170"],[26,"1250x400","R50_60196"],[26,"665x500","A50_60182"],[26,"1000x500","A50_60183"],[26,"1250x500","A50_60184"],[26,"1333x500","A50_60702"],[26,"665x600","A50_60809"],[26,"1000x600","A50_60810"],[26,"1250x600","A50_61279"],[26,"1000x250","A50_60557"],[26,"1333x250","R50_60704"],[26,"50x665x350","A50_60421"],[26,"1000x350","A50_60422"],[26,"1333x350","A50_60688"],[26,"665x450","A50_60377"],[26,"82167x1000x450","A50_60064"],[26,"82167x1250x450","A50_60065"],[26,"82167x1333x450","R50_91266"],[26,"665x550","A50_60376"],[26,"1000x550","A50_60062"],[26,"1250x550","A50_60063"],[26,"1333x550","R50_91148"],[26,"665x650","A50_60555"],[26,"1000x650","A50_60371"],[26,"1250x650","A50_60372"],[26,"665x750","R50_91667"],[26,"1000x750","A50_60556"],[26,"1333x750","R50_91855"],[26,"665x250","R50_92742"],[26,"50x1000x250","R50_92743"],[26,"1333x250","R50_92715"],[26,"665x350","R50_92410"],[26,"1000x350","R50_92415"],[26,"1250x350","R50_92420"],[26,"1333x350","R50_92425"],[26,"665x450","R50_92411"],[26,"1000x450","R50_92416"],[26,"1250x450","R50_92421"],[26,"1333x450","R50_92426"],[26,"665x550","R50_92412"],[26,"1000x550","R50_92417"],[26,"1250x550","R50_92422"],[26,"1333x550","R50_92427"],[26,"665x650","R50_92413"],[26,"1000x650","R50_92418"],[26,"1250x650","R50_92423"],[26,"82167x1333x650","R50_92428"],[26,"82167x665x750","R50_92414"],[26,"82167x1000x750","R50_92419"],[26,"1250x750","R50_92424"],[26,"1333x750","R50_92429"],[26,"2666x200","R50_60170"],[26,"1250x300","A50_60168"],[26,"1333x300","A50_60689"],[26,"665x400","A50_60169"],[26,"1000x250","R50_92743"],[26,"1333x650","R50_92428"],[26,"665x750","R50_92414"],[26,"1000x750","R50_92419"],[26,"665x350","A50_60421"],[26,"1000x450","A50_60064"],[26,"1250x450","A50_60065"],[26,"1333x450","R50_91266"],[27,"20x8x400","R50_60606"],[27,"8x450","R50_60678"],[27,"8x500","R50_60607"],[27,"8x550","R50_60679"],[27,"8x400","R50_60603"],[27,"8x500","R50_60604"],[27,"8x570","R50_60513"],[27,"8x600","R50_60605"],[27,"8x400","R50_60606"],[28,"20x200","G50_60125"],[28,"20x300","G50_60126"],[28,"20x400","G50_60127"],[28,"20x480","G50_60128"],[28,"20x500","G50_60129"],[28,"20x580","G50_60130"],[28,"20x600","G50_60131"],[28,"20x680","G50_60165"],[28,"20x400x7","G50_60287"],[28,"20x500x9","G50_60288"],[29,"30x20x400","A50_60024"],[29,"20x500","A50_60025"],[29,"20x400","A50_60024"],[30,"20x400x7","A50_60162"],[30,"20x500x9","A50_60185"],[31,"20x50","R50_60194"],[31,"20x60x120","R50_81144"],[31,"50","R50_60194"],[31,"60x120","R50_81144"],[32,"330","R50_92891"],[33,"300x300","A50_50059"],[33,"300x400","R50_50166"],[33,"200x200","A50_50058"],[34,"750x65x80","R50_92154"],[34,"650x65x80","R50_91971"],[34,"750x65x80","R50_91910"],[34,"550x93x140","R50_92632"],[34,"650x93x140","R50_92033"],[34,"750x93x140","R50_92034"],[34,"450x93x140","R50_93081"],[34,"550x93x140","R50_92072"],[34,"650x93x140","R50_91979"],[34,"750x93x140","R50_91983"],[34,"450x93x140","R50_93457"],[34,"550x93x140","R50_92073"],[34,"650x93x140","R50_92299"],[34,"750x93x140","R50_92735"],[34,"450x93x140","R50_93465"],[34,"550x93x140","R50_92538"],[34,"650x93x140","R50_92467"],[34,"750x93x140","R50_92301"],[35,"60x70x80","R50_80092"],[35,"220x70x1000","R25_60973"],[36,"20x8x440","R50_60236"],[36,"6x445x310","G50_60150"],[36,"150x10","R50_60303"],[36,"50x150x70","R50_60304"],[36,"130x10","A50_60543"],[36,"8x440","R50_60236"],[36,"150x70","R50_60304"],[37,"600","A50_93226"],[37,"1200","A50_93230"],[37,"600","A50_93221"],[37,"1200","A50_93223"],[37,"975x805x200","R50_91246"],[38,"20x100x100","A50_60235"],[38,"16x400x100","A50_60050"],[38,"16x400x160","A50_60051"],[38,"16x500x160","R50_60353"],[38,"40x250","R50_60300"],[38,"200x10","G50_60066"],[38,"400x10","G50_60067"],[38,"40x200x10","G50_60073"],[38,"100x100","A50_60235"],[38,"250","R50_60300"],[38,"200x10","G50_60073"],[39,"20x300","A50_60299"],[39,"20x30x300","A50_60237"],[39,"300","A50_60299"],[39,"30x300","A50_60237"],[40,"56x430x55","R50_60763"],[40,"56x530x55","R50_60703"],[40,"56x630x55","R50_60296"],[41,"30x400x30","A50_60145"],[41,"60x400x30","A50_60148"],[41,"50x400x30","A50_60130"],[41,"50x500x30","A50_60142"],[41,"20x10x400","A50_60127"],[41,"10x500","A50_60128"],[41,"50x400x30","A50_60123"],[41,"50x500x30","A50_60125"],[41,"10x400","A50_60127"],[42,"50x665x200","R50_20078"],[42,"50x665x270","R50_20071"],[42,"665x470","R50_20089"],[42,"665x570","R50_20065"],[42,"665x670","R50_20067"],[42,"665x770","R50_20090"],[42,"1000x200","R50_20057"],[42,"1000x270","R50_20072"],[42,"1000x470","R50_20060"],[42,"1000x570","R50_20035"],[42,"1000x670","R50_20036"],[42,"1000x770","R50_20068"],[42,"1250x200","R50_20058"],[42,"1250x470","R50_20096"],[42,"1250x570","R50_20037"],[42,"1250x670","R50_20038"],[42,"1250x770","R50_20081"],[42,"1333x200","R50_20091"],[42,"1333x470","R50_20094"],[42,"1333x570","R50_20066"],[42,"1333x670","R50_20092"],[42,"1000x450","R50_92744"],[42,"665x550","R50_92518"],[42,"1000x550","R50_92401"],[42,"1250x550","R50_92558"],[42,"1333x550","R50_92473"],[42,"1000x650","R50_92474"],[42,"1250x650","R50_92770"],[42,"1333x650","R50_92771"],[42,"665x750","R50_91936"],[42,"1000x750","R50_91937"],[42,"1250x750","R50_91938"],[42,"665x200","R50_20078"],[42,"665x270","R50_20071"],[43,"40x665","R50_93128"],[43,"40x1110","R50_93129"],[43,"2000","R50_93130"],[43,"2250","R50_93131"],[43,"40x665","R50_93409"],[43,"40x1110","R50_93410"],[43,"1160","R50_93411"],[43,"1333","R50_93412"],[43,"1666","R50_93413"],[43,"2000","R50_93414"],[43,"2250","R50_93415"],[43,"2500","R50_93416"],[43,"2666","R50_93417"],[43,"3000","R50_93418"],[43,"1110x300","R50_81557"],[43,"1666x300","R50_82549"],[43,"2000x300","R50_82724"],[43,"2250x300","R50_81558"],[43,"143x570x300","R50_91445"],[43,"143x670x300","R50_91446"],[43,"75x470x300","R50_93392"],[43,"75x570x300","R50_91457"],[43,"75x670x300","R50_91458"],[43,"175x60x2366","R50_91465"],[43,"175x60x2366","R50_92132"],[43,"665","R50_93128"],[43,"1110","R50_93129"],[43,"665","R50_93409"],[43,"1110","R50_93410"],[44,"250x140","R50_93134"],[44,"250x170","R50_82169"],[44,"50x170","R50_82247"],[45,"1000x564x1400","R50_91254"],[46,"55x974x2250","R50_82236"],[46,"55x340x2250","R50_82638"],[46,"55x340x2250","R50_81742"],[46,"336x140","R50_92879"],[46,"60x40x1320","R50_80047"],[46,"60x40x1050","R50_80148"],[46,"60x40x850","R50_80147"],[46,"60x40x750","R50_80065"],[46,"1666","R50_93361"],[46,"2000","R50_92896"],[46,"2500","R50_93033"],[46,"2666","R50_93116"],[46,"3000","R50_93170"],[46,"1666","R50_93363"],[46,"2000","R50_92898"],[46,"2500","R50_93031"],[46,"2666","R50_93118"],[46,"3000","R50_93169"],[46,"1333","A50_90116"],[46,"2000","A50_90117"],[46,"3000","A50_83987"],[46,"2000","R50_92939"],[46,"2250","R50_82236"],[46,"2250","R50_82638"],[46,"2250","R50_81742"],[46,"140","R50_92879"],[46,"55x874x2700","R50_81940"],[46,"55x340x2700","R50_82276"],[46,"55x340x2700","R50_82070"],[46,"2700","R50_81940"],[46,"2700","R50_82276"],[46,"2700","R50_82070"],[46,"55x974x2700","R50_82497"],[46,"55x340x2700","R50_82499"],[46,"2700","R50_82497"],[46,"2700","R50_82499"],[47,"55x874x5000","A50_81571"],[47,"55x974x5000","A50_81735"],[47,"55x340x5000","R50_82208"],[47,"55x340x5000","R50_81748"],[47,"336x140","R50_92879"],[47,"60x40x1320","R50_80047"],[47,"60x40x1050","R50_80148"],[47,"60x40x850","R50_80147"],[47,"60x40x750","R50_80065"],[47,"1666","R50_82596"],[47,"2000","R50_82179"],[47,"2250","R50_82463"],[47,"2500","R50_82626"],[47,"2666","R50_82241"],[47,"3000","R50_82920"],[47,"1666","R50_82599"],[47,"2000","R50_82180"],[47,"2250","R50_82464"],[47,"2500","R50_82629"],[47,"2666","R50_82242"],[47,"3000","R50_82921"],[47,"1333","A50_90116"],[47,"2000","A50_90117"],[47,"3000","A50_83987"],[47,"2000","R50_92939"],[47,"5000","A50_81571"],[47,"5000","A50_81735"],[47,"5000","R50_82208"],[47,"5000","R50_81748"],[47,"140","R50_92879"],[48,"500","R50_93370"],[48,"5000","A50_81568"],[48,"975x60x40","R50_82433"],[48,"1975x60x40","R50_82275"],[48,"2475x60x40","R50_82508"],[48,"2975x60x40","R50_82434"],[48,"975x100x40","R50_82418"],[48,"1975x100x40","R50_81421"],[48,"2475x100x40","R50_82511"],[48,"2975x100x40","R50_82419"],[49,"205x455","R50_92950"],[49,"455x105","R50_93282"],[49,"455x205","R50_92946"],[49,"455x455","R50_92926"],[49,"455x705","R50_93213"],[49,"455x955","R50_92927"],[49,"455x1455","R50_93271"],[49,"455x1955","R50_92928"],[49,"455x2455","R50_92929"],[49,"955x455","R50_92934"],[49,"955x955","R50_93019"],[49,"955x1455","R50_93277"],[49,"955x1955","R50_93020"],[49,"2000","R50_92939"],[49,"2000","R50_92936"],[49,"1975x60x40","R50_82275"],[49,"2475x60x40","R50_82508"],[49,"2975x60x40","R50_82434"],[49,"1975x60x40","R50_81421"],[49,"2475x60x40","R50_82511"],[49,"2975x60x40","R50_82419"],[50,"205x455","R50_92950"],[50,"455x105","R50_93282"],[50,"455x205","R50_92946"],[50,"455x455","R50_92926"],[50,"455x705","R50_93213"],[50,"455x955","R50_92927"],[50,"455x1455","R50_93271"],[50,"455x1955","R50_92928"],[50,"455x2455","R50_92929"],[50,"955x455","R50_92934"],[50,"955x955","R50_93019"],[50,"955x1455","R50_93277"],[50,"955x1955","R50_93020"],[50,"995x825","R50_93519"],[50,"1995x825","R50_93520"],[50,"1000","R50_93261"],[50,"2000","R50_93021"],[50,"2250","R50_93436"],[50,"2500","R50_93355"],[50,"3000","R50_93262"],[50,"0x80x1410","R50_10118"],[50,"65x400","A50_40000"],[50,"00x400","A50_40001"],[50,"50x400","A50_40002"],[50,"33x400","A50_40126"],[51,"665x100","A50_40008A"],[51,"1000x100","A50_40009A"],[51,"1250x100","A50_40010A"],[51,"1333x100","A50_40130"],[51,"665x80x16","A50_80256"],[51,"1000x80x16","A50_80003"],[51,"1250x80x16","A50_80004"],[51,"1333x80x16","A50_82003"],[51,"2000","R50_92939"],[51,"665","R50_93071"],[51,"50x1000","R50_93072"],[51,"1250","R50_93151"],[51,"1333","R50_93153"],[51,"1000","R50_93072"],[52,"3000","R50_91412"],[52,"3500","R50_91387"],[52,"4500","R50_91286"],[52,"5000","R50_91958"],[52,"5500","R50_91337"],[52,"1000x1000","R50_91414"],[52,"1000x2000","R50_91398"],[52,"800x2000","R50_91634"],[52,"2000","R50_91341"],[52,"2250","R50_92294"],[52,"2333","R50_92317"],[52,"2500","R50_92377"],[52,"2666","R50_91960"],[52,"2666","R50_92552"],[52,"3000","R50_91342"],[52,"1000x1000","R50_91369"],[52,"1000x2000","R50_91370"],[52,"800x2000","R50_91409"],[52,"800x1000","R50_91428"],[52,"1333x1920","R50_91961"],[52,"235x124x180","R50_91965"],[53,"1090x3500x3","R50_91214"],[53,"1090x4500x4","R50_91215"],[53,"1090x3500x3","R50_91216"],[53,"1090x4500x4","R50_91217"],[53,"432x1088","R50_91283"],[53,"1000x1000","R50_91321"],[53,"1000x630x175","R50_91229"],[53,"2000","R50_91341"],[53,"2250","R50_92294"],[53,"2333","R50_92317"],[53,"2500","R50_92377"],[53,"2666","R50_92552"],[53,"3000","R50_91342"],[54,"1000x3500x3","R50_91671"],[54,"1000x4500x4","R50_91672"],[54,"1000x3500x3","R50_91669"],[54,"1000x4500x4","R50_91670"],[54,"2000","R50_91341"],[54,"2250","R50_92294"],[54,"2333","R50_92317"],[54,"2500","R50_92377"],[54,"2666","R50_92552"],[54,"3000","R50_91342"],[55,"772x3500x2","R50_91509"],[55,"1090x3500x2","R50_91348"],[55,"772x4000x2","R50_91665"],[55,"1090x4500x3","R50_91265"],[55,"1000x5500x3","R50_92306"],[55,"1090x5500x3","R50_91275"],[55,"1090x3500x2","R50_92472"],[55,"772x3500x2","R50_91510"],[55,"1090x3500x2","R50_91349"],[55,"772x4000x2","R50_91693"],[55,"1090x4500x3","R50_92251"],[55,"1090x4500x3","R50_91273"],[55,"1090x4500x3","R50_92367"],[55,"1090x4500x3","R50_92325"],[55,"1090x5500x3","R50_92307"],[55,"1090x5500x3","R50_91276"],[55,"5500x3","R50_92463"],[55,"2000","R50_91341"],[55,"2250","R50_92294"],[55,"2333","R50_92317"],[55,"2500","R50_92377"],[55,"2666","R50_92552"],[55,"3000","R50_91342"],[56,"1090x1432","R50_91287"],[56,"772x1417","R50_91541"],[56,"235x124x180","R50_91965"],[56,"985x500x174","R50_91696"],[56,"985x514x174","R50_91271"],[56,"985x514x174","R50_91274"],[57,"440x440","R50_93470"],[57,"93522x865x1100","R50_93451"],[57,"900x900","R50_92808"],[57,"900x1000","R50_93289"],[57,"950x440","R50_93471"],[57,"1000x500","R50_92806"],[57,"1000x1000","R50_92809"],[57,"1000x1500","R50_92811"],[57,"1000x2000","R50_92824"],[57,"1100x900","R50_92953"],[57,"1250x500","R50_92807"],[57,"1250x1000","R50_92810"],[57,"1300x900","R50_93256"],[57,"1300x1200","R50_93441"],[57,"970x803","R50_91272"],[57,"993x970","R50_91699"],[57,"865x1100","R50_93451"],[58,"30x80x1400","R50_10356"],[58,"30x80x1500","R50_10163"],[58,"30x900x260","R50_82228"],[58,"30x1800x260","R50_80786"],[58,"900","R50_30104"],[58,"1300","R50_30284"],[58,"30x900x300","R50_82285"],[58,"30x1800x300","R50_82286"],[58,"30x80x300","R50_10338"],[58,"30x30x80","R50_90397"],[58,"900x260","R50_82228"],[58,"1800x260","R50_80786"],[58,"900x300","R50_82285"],[58,"1800x300","R50_82286"],[58,"30x80","R50_90397"],[59,"665x2060x4","R50_93488"],[59,"1000x2060x6","R50_93487"],[59,"665x2060x8","R50_93478"],[60,"774x670x900","R50_82643"],[60,"974x870x2750","A50_82289"],[60,"974x870x900","A50_81491"],[60,"1074x970x2750","R50_82729"],[60,"574x470x1200","A50_82172"],[60,"674x570x2850","R50_81408"],[60,"674x570x1200","A50_82477"],[60,"574x470x3000","A50_81536"],[60,"774x670x1200","A50_82834"],[60,"674x570x3000","A50_81537"],[60,"1174x1070x1200","A50_82400"],[60,"774x670x3000","A50_81538"],[60,"574x470x1400","R50_81706"],[60,"874x770x3000","A50_81539"],[60,"674x570x1400","R50_81789"],[60,"974x870x3000","A50_81507"],[60,"574x470x1500","A50_81512"],[60,"1074x970x3000","A50_81730"],[60,"674x570x1500","A50_81513"],[60,"1174x1070x3000","A50_81508"],[60,"774x670x1500","A50_81514"],[60,"574x470x3200","R50_81926"],[60,"874x770x1500","A50_81515"],[60,"674x570x3200","R50_81807"],[60,"974x870x1500","A50_81728"],[60,"774x670x3200","R50_81808"],[60,"1074x970x1500","A50_81729"],[60,"574x470x3250","R50_81286"],[60,"1174x1070x1500","A50_81497"],[60,"974x870x3250","A50_86471"],[60,"574x470x1600","R50_81695"],[60,"1074x970x3250","R50_81698"],[60,"974x870x1650","R50_82423"],[60,"1174x1070x3250","R50_81707"],[60,"674x570x1700","R50_81526"],[60,"374x270x3500","R50_82496"],[60,"974x870x1700","A50_81980"],[60,"574x470x3500","A50_81544"],[60,"1174x1070x1700","R50_81927"],[60,"674x570x3500","A50_81545"],[60,"874x770x1750","R50_81482"],[60,"774x670x3500","A50_81546"],[60,"1074x970x1750","R50_81797"],[60,"874x770x3500","A50_81547"],[60,"574x470x1800","R50_81020"],[60,"974x870x3500","A50_81731"],[60,"674x570x1900","R50_82102"],[60,"1074x970x3500","A50_81732"],[60,"774x670x1900","R50_82229"],[60,"1174x1070x3500","A50_82210"],[60,"974x870x1900","R50_82101"],[60,"574x470x3750","R50_80973"],[60,"574x470x2000","R50_81019"],[60,"674x570x3750","R50_80974"],[60,"674x570x2000","A50_86317"],[60,"974x870x3750","R50_80975"],[60,"774x670x2000","R50_81236"],[60,"574x470x4000","A50_81552"],[60,"874x770x2000","R50_80697"],[60,"674x570x4000","A50_81553"],[60,"974x870x2000","R50_81090"],[60,"774x670x4000","A50_81554"],[60,"1074x970x2000","R50_81691"],[60,"874x770x4000","A50_81555"],[60,"1174x1070x2000","R50_81696"],[60,"974x870x4000","A50_82348"],[60,"674x570x2100","A50_81979"],[60,"1074x970x4000","R50_80690"],[60,"1074x970x2100","A50_82704"],[60,"1174x1070x4000","R50_80282"],[60,"1174x1070x2100","R50_82342"],[60,"674x570x4200","R50_81403"],[60,"674x570x2200","R50_81694"],[60,"974x870x4200","R50_81404"],[60,"374x270x2250","R50_82556"],[60,"574x470x4300","A50_82503"],[60,"574x470x2250","A50_81524"],[60,"374x270x4500","R50_82588"],[60,"674x570x2250","A50_81525"],[60,"574x470x4500","A50_81560"],[60,"774x670x2250","A50_81526"],[60,"674x570x4500","A50_81561"],[60,"874x770x2250","A50_81527"],[60,"774x670x4500","A50_81562"],[60,"974x870x2250","A50_81978"],[60,"874x770x4500","A50_81563"],[60,"1074x970x2250","A50_82016"],[60,"974x870x4500","A50_81733"],[60,"1174x1070x2250","A50_83084"],[60,"1074x970x4500","A50_81734"],[60,"574x470x2400","A50_82715"],[60,"1174x1070x4500","A50_82015"],[60,"674x570x2400","R50_81287"],[60,"574x470x4750","R50_81780"],[60,"774x670x2400","A50_82719"],[60,"1074x970x4750","R50_81781"],[60,"874x770x2400","R50_81110"],[60,"1174x1070x4750","R50_81782"],[60,"974x870x2400","R50_81092"],[60,"374x270x5000","R50_81802"],[60,"1074x970x2400","R50_82336"],[60,"574x470x5000","A50_81568"],[60,"1174x1070x2400","R50_82119"],[60,"674x570x5000","A50_81569"],[60,"574x470x2500","A50_81528"],[60,"774x670x5000","A50_81570"],[60,"674x570x2500","A50_81987"],[60,"874x770x5000","A50_81571"],[60,"774x670x2500","A50_81530"],[60,"974x870x5000","A50_81735"],[60,"874x770x2500","A50_81531"],[60,"1074x970x5000","A50_81509"],[60,"974x870x2500","A50_82137"],[60,"1174x1070x5000","A50_81510"],[60,"1074x970x2500","A50_81505"],[60,"574x470x5500","A50_81576"],[60,"1174x1070x2500","A50_81506"],[60,"674x570x5500","A50_81577"],[60,"574x470x2700","R50_81937"],[60,"774x670x5500","A50_81578"],[60,"674x570x2700","R50_81938"],[60,"874x770x5500","A50_81579"],[60,"774x670x2700","R50_81939"],[60,"974x870x5500","A50_81736"],[60,"874x770x2700","R50_81940"],[60,"1074x970x5500","A50_81737"],[60,"974x870x2700","R50_81941"],[60,"1174x1070x5500","A50_82014"],[60,"1074x970x2700","R50_81942"],[60,"574x470x6000","A50_81584"],[60,"1174x1070x2700","R50_81943"],[60,"674x570x6000","A50_81585"],[60,"574x470x2750","R50_80281"],[60,"774x670x6000","A50_81586"],[60,"674x570x2750","A50_82135"],[60,"874x770x6000","A50_81963"],[60,"774x670x2750","A50_81534"],[60,"974x870x6000","A50_82011"],[60,"874x770x2750","A50_81535"],[60,"1074x970x6000","A50_82012"],[60,"1174x1070x6000","A50_82013"],[60,"2750","A50_82289"],[60,"2750","R50_82729"],[60,"2850","R50_81408"],[60,"3000","A50_81536"],[60,"3000","A50_81537"],[60,"3000","A50_81538"],[60,"3000","A50_81539"],[60,"3000","A50_81507"],[60,"3000","A50_81730"],[60,"3000","A50_81508"],[60,"3200","R50_81926"],[60,"3200","R50_81807"],[60,"3200","R50_81808"],[60,"3250","R50_81286"],[60,"3250","A50_86471"],[60,"3250","R50_81698"],[60,"3250","R50_81707"],[60,"3500","R50_82496"],[60,"3500","A50_81544"],[60,"3500","A50_81545"],[60,"3500","A50_81546"],[60,"3500","A50_81547"],[60,"3500","A50_81731"],[60,"3500","A50_81732"],[60,"3500","A50_82210"],[60,"3750","R50_80973"],[60,"3750","R50_80974"],[60,"3750","R50_80975"],[60,"2700x2700","A50_82014"],[61,"614x470x1500","A50_81884"],[61,"714x570x1500","A50_81885"],[61,"814x670x1500","A50_81886"],[61,"914x770x1500","A50_81887"],[61,"1014x870x1500","A50_81888"],[61,"1114x970x1500","A50_81889"],[61,"914x770x1800","R50_81303"],[61,"1014x870x1800","R50_81468"],[61,"614x470x2250","A50_81890"],[61,"714x570x2250","A50_81891"],[61,"814x670x2250","A50_81892"],[61,"914x770x2250","A50_81893"],[61,"1014x870x2250","A50_81894"],[61,"1114x970x2250","A50_81895"],[61,"614x470x3000","A50_81896"],[61,"714x570x3000","A50_81897"],[61,"814x670x3000","A50_81898"],[61,"914x770x3000","A50_81899"],[61,"1014x870x3000","A50_81900"],[61,"1114x970x3000","A50_81901"],[61,"614x470x3500","A50_81902"],[61,"714x570x3500","A50_81903"],[61,"814x670x3500","A50_81904"],[61,"914x770x3500","A50_81905"],[61,"1014x870x3500","A50_81906"],[61,"1114x970x3500","A50_81907"],[61,"614x470x4500","A50_81908"],[61,"714x570x4500","A50_81909"],[61,"814x670x4500","A50_81910"],[61,"914x770x4500","A50_81911"],[61,"1014x870x4500","A50_81912"],[61,"1114x970x4500","A50_81913"],[61,"614x470x5000","A50_81914"],[61,"714x570x5000","A50_81915"],[61,"814x670x5000","A50_81916"],[61,"914x770x5000","A50_81917"],[61,"1014x870x5000","A50_81918"],[61,"1114x970x5000","A50_81919"],[61,"614x470x5500","A50_81920"],[61,"714x570x5500","A50_81921"],[61,"814x670x5500","A50_81922"],[61,"914x770x5500","A50_81923"],[61,"1014x870x5500","A50_81924"],[61,"1114x970x5500","A50_81925"],[61,"914x770x6000","R50_81035"],[61,"2250","R50_82231"],[61,"2250","R50_82638"],[61,"2700","R50_82276"],[61,"2700","R50_82499"],[61,"4500","R50_82294"],[61,"5000","R50_82208"],[61,"5000","R50_82630"],[62,"55x1050x2000","R50_81134"],[62,"55x1050x3000","R50_80603"],[62,"55x1050x4500","R50_81254"],[62,"55x1050x5500","A50_81627"],[62,"55x1150x3000","A50_81823"],[62,"55x1150x4500","A50_81822"],[62,"55x1150x5500","A50_81628"],[62,"55x1150x6000","R50_81021"],[62,"55x1350x1400","R50_82467"],[62,"55x1350x1650","R50_81704"],[62,"55x1350x2000","R50_81719"],[62,"55x1350x2250","R50_81262"],[62,"55x1350x2400","R50_82737"],[62,"55x1350x2500","R50_81233"],[62,"55x1350x3000","R50_80931"],[62,"55x1350x3500","R50_82696"],[62,"55x1350x4500","R50_81015"],[62,"55x1350x5000","R50_82233"],[62,"55x1350x5500","A50_81629"],[62,"55x1550x1800","R50_81804"],[62,"55x1550x2000","R50_82255"],[62,"55x1550x2250","A50_81631"],[62,"55x1550x2500","R50_82669"],[62,"55x1550x3000","R50_81251"],[62,"55x1550x4500","A50_81640"],[62,"55x1550x5500","A50_81630"],[62,"55x1550x6000","R50_81420"],[63,"55x1050x3000","A50_82364"],[63,"55x1050x3500","A50_81940"],[63,"55x1050x4500","A50_81930"],[63,"55x1050x5500","A50_81941"],[63,"55x1050x6000","A50_81942"],[64,"55x1150x2700","R50_82343"],[64,"55x1150x3000","A50_82168"],[64,"55x1150x3500","A50_81487"],[64,"55x1150x4500","A50_81605"],[64,"55x1150x5500","A50_81943"],[64,"55x1150x6000","A50_81944"],[65,"55x1250x3000","R50_81265"],[66,"55x1350x1500","A50_81588"],[66,"55x1350x1600","R50_81547"],[66,"55x1350x1700","R50_81646"],[66,"55x1350x2000","R50_81114"],[66,"55x1350x2400","R50_81875"],[66,"55x1350x2500","R50_80854"],[66,"55x1350x2700","R50_81945"],[66,"55x1350x2850","R50_81410"],[66,"55x1350x3000","A50_82169"],[66,"55x1350x3500","A50_81949"],[66,"55x1350x3750","R50_81411"],[66,"55x1350x4000","R50_81302"],[66,"55x1350x4200","R50_81400"],[66,"55x1350x4500","A50_81606"],[66,"55x1350x5500","A50_81950"],[66,"55x1350x6000","A50_81951"],[67,"55x1450x4500","R50_81022"],[68,"55x1550x1500","A50_81589"],[68,"55x1550x2250","A50_81952"],[68,"55x1550x3000","A50_81598"],[68,"55x1550x3500","A50_81953"],[68,"55x1550x4500","A50_81607"],[68,"55x1550x5500","A50_81954"],[68,"55x1550x6000","A50_81616"],[69,"1350x1400x600","R50_81709"],[69,"1350x1500x1300","R50_80952"],[69,"1350x1600x1200","R50_81402"],[69,"1150x1750x1000","R50_82589"],[69,"1350x1750x1000","R50_82653"],[69,"1150x1750x1250","R50_81235"],[69,"1350x1750x1250","R50_81185"],[70,"974x1400x1200","R50_82243"],[70,"1074x1400x1200","R50_82660"],[70,"1350x1400x1200","R50_82353"],[70,"1074x1500x1100","R50_81151"],[70,"774x1500x1200","R50_81112"],[70,"974x1500x1200","R50_80933"],[70,"1074x1500x1200","R50_81113"],[70,"1174x1500x1200","R50_81206"],[70,"774x1500x1300","R50_80822"],[70,"974x1500x1300","R50_80820"],[70,"1074x1500x1300","R50_82134"],[70,"1074x1600x1200","R50_82714"],[70,"974x1600x1300","R50_80852"],[70,"974x1700x1400","R50_81705"],[70,"1174x1800x1600","R50_81252"],[70,"974x2650x1100","R50_81374"],[70,"774x2700x1300","R50_82687"],[70,"874x2700x1400","R50_82534"],[70,"674x4500x2300","R50_81868"],[70,"974x4500x2400","R50_81550"],[70,"974x4500x2500","R50_81689"],[70,"1074x4500x2500","R50_81749"],[70,"974x4500x2600","R50_81650"],[70,"974x4500x2800","R50_81479"],[70,"974x4500x3000","R50_81481"],[70,"974x4500x3000","R50_81690"],[70,"1074x4500x3000","R50_81805"],[70,"1174x4500x3000","R50_81788"],[70,"974x4500x3500","R50_81771"],[70,"674x5000x2500","R50_82622"],[70,"1074x5000x2500","R50_82120"],[70,"874x5000x2800","R50_82543"],[70,"974x5000x3100","R50_82372"],[70,"1074x5000x3100","R50_82374"],[70,"1174x5000x3100","R50_82373"],[70,"1074x5000x3500","R50_82234"],[70,"974x5500x3000","R50_81722"],[70,"1174x5500x3100","R50_81855"],[71,"240x4500x600","R50_80842"],[71,"240x4500x500","R50_81093"],[71,"240x5000x500","R50_82086"],[71,"240x5500x500","R50_81102"],[71,"240x5500x500","R50_80666"],[71,"240x5500x500","R50_80668"],[71,"240x5500x600","R50_80682"],[72,"240x2250x1750","A50_81763"],[72,"240x5500x3500","R50_80692"],[72,"240x2250x1750","A50_81845"],[72,"240x5500x1200","R50_82697"],[72,"240x2400x1400","R50_81036"],[72,"240x5500x1200","R50_81160"],[72,"240x2750x1200","R50_82700"],[72,"240x5500x2800","R50_81467"],[72,"240x3000x1000","A50_82029"],[72,"240x5500x2800","R50_81686"],[72,"240x3000x1800","A50_81764"],[72,"240x3000x2000","R50_81693"],[72,"240x3000x1600","R50_81270"],[72,"240x3000x1400","R50_82364"],[72,"240x3500x1200","R50_80962"],[72,"240x3500x1500","A50_81765"],[72,"240x3500x1800","A50_81766"],[72,"240x3500x1000","R50_81651"],[72,"240x3500x1200","R50_82699"],[72,"240x4200x1600","R50_81436"],[72,"240x4500x1200","R50_81801"],[72,"240x4500x2000","R50_81432"],[72,"240x4500x2250","R50_81232"],[72,"240x4500x2500","R50_81489"],[72,"240x4500x1200","A50_82042"],[72,"240x4500x1500","A50_81767"],[72,"240x4500x1650","R50_81682"],[72,"240x4500x1700","R50_81503"],[72,"240x4500x1800","A50_81768"],[72,"240x4500x2000","R50_81478"],[72,"240x4500x2250","A50_81769"],[72,"240x4500x3000","R50_80693"],[72,"240x4500x3500","R50_80629"],[72,"240x4500x1200","R50_80790"],[72,"240x4500x1650","R50_81546"],[72,"240x4500x1800","R50_80841"],[72,"240x4500x2000","R50_81412"],[72,"240x4500x2250","R50_80581"],[72,"240x4500x2500","R50_80760"],[72,"240x4500x2500","R50_80726"],[72,"240x4500x2700","R50_82732"],[72,"240x4500x3000","R50_80694"],[72,"240x4500x3500","R50_80568"],[72,"240x4500x1200","R50_81221"],[72,"240x4500x1600","R50_80727"],[72,"240x4500x2250","R50_81199"],[72,"240x4500x3500","R50_80925"],[72,"240x4500x1800","A50_81846"],[72,"240x4500x2000","R50_81300"],[72,"240x4500x2250","R50_81422"],[72,"240x4500x3500","R50_81086"],[72,"240x5000x1600","A50_81770"],[72,"240x5000x1650","R50_82071"],[72,"240x5000x2000","R50_82766"],[72,"240x5000x2750","A50_81455"],[72,"240x5000x1650","R50_82366"],[72,"240x5000x1800","R50_82636"],[72,"240x5000x2600","R50_82103"],[72,"240x5000x2800","R50_82085"],[72,"240x5000x2900","R50_82735"],[72,"240x5000x3000","R50_80732"],[72,"240x5000x4000","R50_82084"],[72,"240x5000x1200","R50_82698"],[72,"240x5000x2800","R50_82633"],[72,"240x5000x1750","A50_81847"],[72,"240x5000x2750","A50_81848"],[72,"240x5500x1500","A50_81976"],[72,"240x5500x1800","A50_81977"],[72,"240x5500x1350","R50_81700"],[72,"240x5500x1800","R50_80878"],[72,"240x5500x2250","R50_81258"],[72,"240x5500x3000","A50_82833"],[71,"340x2250x1750","A50_81451"],[71,"340x2250x1750","A50_81454"],[71,"340x2300x1350","R50_81511"],[71,"340x2700x1600","R50_82345"],[71,"340x2700x1200","R50_82344"],[71,"340x2700x1800","R50_82087"],[71,"340x2700x2000","R50_82066"],[71,"340x3000x1800","R50_81641"],[71,"340x3000x2000","R50_81697"],[71,"340x3000x1800","A50_81482"],[71,"340x3000x1500","R50_80839"],[71,"340x3000x1800","R50_80850"],[71,"340x3000x1900","R50_80839"],[71,"340x3500x1500","A50_81464"],[71,"340x3500x1600","A50_81851"],[71,"340x3500x1800","A50_81467"],[71,"340x3500x1600","R50_81652"],[71,"340x3500x1350","R50_81734"],[71,"340x4500x3000","R50_81267"],[71,"340x4500x1500","A50_81468"],[71,"340x4500x1600","A50_81582"],[71,"340x4500x1800","A50_81469"],[71,"340x4500x2250","A50_81470"],[71,"340x4500x2500","R50_80691"],[71,"340x4500x3000","R50_82837"],[71,"340x4500x1500","A50_82057"],[71,"340x4500x1750","R50_81098"],[71,"340x4500x1800","R50_80840"],[71,"340x4500x2000","A50_82018"],[71,"340x4500x2250","R50_81091"],[71,"340x4500x2700","R50_81642"],[71,"340x4500x3000","R50_81433"],[71,"340x4500x3500","R50_81414"],[71,"340x4500x2250","R50_80793"],[71,"340x4500x3500","R50_81415"],[71,"340x4500x1800","A50_81849"],[71,"340x4500x1600","R50_80934"],[71,"340x4500x2000","R50_81858"],[71,"340x4500x2250","R50_81416"],[71,"340x5000x1600","A50_81483"],[71,"340x5000x2750","A50_81456"],[71,"340x5000x3000","R50_82587"],[71,"340x5000x2000","R50_82632"],[71,"340x5000x2000","R50_82065"],[71,"340x5000x1800","R50_82642"],[71,"340x5000x1650","R50_82654"],[71,"340x5000x3000","R50_82730"],[71,"340x5000x1750","A50_81460"],[71,"340x5000x2750","A50_81463"],[71,"340x5000x3000","R50_82731"],[71,"340x5500x1500","A50_81473"],[71,"340x5500x1800","A50_81484"],[71,"340x5500x2000","A50_81476"],[71,"340x5500x2250","A50_81479"],[71,"340x5500x2600","R50_81290"],[71,"340x5500x3100","R50_82562"],[71,"340x5500x2800","R50_81717"],[71,"340x5500x3000","R50_81790"],[71,"440x2250x1750","A50_81452"],[71,"440x2250x1750","A50_81864"],[71,"440x3000x1800","A50_81854"],[71,"440x3000x2000","R50_81699"],[71,"440x3000x2000","R50_81429"],[71,"440x3500x1500","A50_81465"],[71,"440x3500x1600","A50_81856"],[71,"440x3500x1800","A50_81857"],[71,"440x3500x1600","R50_80817"],[71,"440x3750x1500","R50_80980"],[71,"440x4500x1500","A50_81858"],[71,"440x4500x1600","A50_81859"],[71,"440x4500x1800","A50_81860"],[71,"440x4500x2250","A50_81471"],[71,"440x4500x1500","R50_80588"],[71,"440x4500x1800","A50_82058"],[71,"440x4500x2000","R50_81269"],[71,"440x4500x2250","R50_80754"],[71,"440x4500x2250","A50_82059"],[71,"440x4500x2700","R50_80815"],[71,"440x4500x2250","R50_81129"],[71,"440x4500x1800","R50_81163"],[71,"440x4500x2000","R50_81692"],[71,"440x4500x1800","A50_81865"],[71,"440x4500x2250","R50_81349"],[71,"440x5000x1600","A50_81862"],[71,"440x5000x2750","A50_81457"],[71,"440x5000x2800","R50_82686"],[71,"440x5000x2000","R50_82328"],[71,"440x5000x2800","R50_82590"],[71,"440x5000x1750","A50_81461"],[71,"440x5000x2750","A50_81866"],[71,"440x5000x2800","R50_82088"],[71,"440x5000x3000","R50_82894"],[71,"440x5500x1500","A50_81474"],[71,"440x5500x1800","A50_81863"],[71,"440x5500x2000","A50_81477"],[71,"440x5500x2250","A50_81480"],[71,"440x5500x1800","R50_81480"],[71,"540x2250x1750","A50_81453"],[71,"540x2250x1750","A50_81875"],[71,"540x3000x1800","A50_81867"],[71,"540x3000x2000","R50_81527"],[71,"540x3000x2000","R50_80696"],[71,"540x3000x1800","R50_81644"],[71,"540x3000x2000","R50_81876"],[71,"540x3500x1500","A50_81466"],[71,"540x3500x1600","A50_81868"],[71,"540x3500x1800","A50_81869"],[71,"540x3500x1800","R50_80685"],[71,"540x3500x2300","R50_81645"],[71,"540x3750x1800","R50_80977"],[71,"540x4500x1500","A50_81870"],[71,"540x4500x1600","A50_81871"],[71,"540x4500x1800","A50_81872"],[71,"540x4500x2250","A50_81472"],[71,"540x4500x1800","R50_81454"],[71,"540x4500x3000","R50_81392"],[71,"540x4500x1500","A50_82019"],[71,"540x4500x1700","R50_80792"],[71,"540x4500x1800","R50_81128"],[71,"540x4500x1500","A50_82060"],[71,"540x4500x1800","A50_81459"],[71,"540x4500x1500","R50_81230"],[71,"540x4500x1800","R50_80283"],[71,"540x4500x2000","R50_80695"],[71,"540x5000x1600","A50_81873"],[71,"540x5000x2750","A50_81458"],[71,"540x5000x1750","A50_81462"],[71,"540x5000x2750","A50_81876"],[71,"540x5000x1750","R50_82649"],[71,"540x5500x1500","A50_81475"],[71,"540x5500x1600","R50_81094"],[71,"540x5500x1800","A50_81874"],[71,"540x5500x2000","A50_81478"],[71,"540x5500x2250","A50_81481"],[71,"540x5500x1600","R50_81073"],[71,"540x5500x1500","A50_82171"],[73,"60x40x4100","R50_81018"],[73,"60x40x2760","R50_82433"],[73,"60x40x2690","R50_80066"],[73,"60x40x2420","R50_81299"],[73,"60x40x2310","R50_81678"],[73,"60x40x2140","R50_80068"],[73,"60x40x2000","R50_80634"],[73,"60x40x1590","R50_80067"],[73,"60x40x1350","R50_82275"],[73,"60x40x1320","R50_80047"],[73,"60x40x1050","R50_80148"],[73,"60x40x980","R50_81948"],[73,"60x40x850","R50_80147"],[73,"60x40x750","R50_80065"],[73,"60x40x590","R50_80048"],[73,"100x40x4100","R50_82335"],[73,"100x40x4100","R50_82418"],[73,"100x40x4100","R50_80064"],[73,"100x40x4100","R50_82356"],[73,"100x40x4100","R50_80124"],[73,"100x40x4060","R50_80640"],[73,"100x40x3230","R50_80063"],[73,"100x40x2710","R50_81421"],[73,"100x40x2680","R50_80045"],[73,"100x40x2380","R50_80105"],[73,"100x40x2290","R50_81951"],[73,"100x40x2130","R50_80146"],[73,"100x40x2000","R50_80641"],[73,"100x40x1770","R50_80046"],[73,"100x40x1650","R50_82492"],[73,"100x40x1600","R50_81379"],[73,"100x40x1470","R50_81393"],[73,"100x40x1290","R50_81497"],[73,"100x40x1150","R50_81728"],[73,"100x40x1140","R50_81498"],[73,"100x40x1030","R50_81778"],[73,"100x40x990","R50_80898"],[73,"100x40x950","R50_80899"],[73,"100x40x790","R50_80900"],[74,"140x40x4100","R50_80144"],[74,"140x40x4100","R50_81796"],[74,"140x40x4100","R50_80646"],[74,"140x40x4100","R50_80143"],[74,"140x40x4100","R50_80103"],[74,"140x40x3950","R50_80142"],[74,"140x40x3550","R50_80107"],[74,"140x40x3320","R50_80102"],[74,"140x40x2950","R50_80101"],[74,"140x40x2750","R50_82495"],[74,"140x40x2740","R50_81601"],[74,"140x40x2700","R50_81832"],[74,"140x40x2450","R50_82546"],[74,"140x40x2350","R50_81703"],[74,"140x40x2240","R50_81488"],[74,"140x40x2190","R50_81925"],[74,"140x40x2150","R50_81930"],[74,"140x40x2120","R50_81524"],[74,"140x40x2080","R50_80910"],[74,"140x40x2070","R50_82189"],[74,"140x40x2030","R50_80911"],[74,"140x40x2020","R50_81800"],[74,"140x40x1990","R50_80829"],[74,"140x40x1780","R50_80912"],[74,"140x40x1750","R50_82679"],[74,"140x40x1640","R50_81089"],[74,"140x40x1300","R50_81485"],[74,"1000x100","R50_81869"],[74,"1000x200","R50_81870"],[74,"1000x300","R50_81549"],[74,"1000x400","R50_81871"],[74,"1333x300","R50_82165"],[74,"2000x100","R50_80090"],[74,"2000x200","R50_80006"],[74,"2000x300","R50_80582"],[74,"2000x400","R50_80011"],[74,"2000x670","R50_81382"],[74,"2000x770","R50_81391"],[74,"2250x200","R50_80007"],[74,"2250x400","R50_80012"],[74,"2500x200","R50_80008"],[74,"2500x300","R50_82616"],[74,"2500x400","R50_80013"],[74,"2666x100","R50_81413"],[74,"2666x200","R50_81181"],[74,"2666x300","R50_81877"],[74,"2666x400","R50_81182"],[74,"3000x100","R50_80089"],[74,"3000x200","R50_80010"],[74,"3000x300","R50_80288"],[74,"3000x400","R50_80015"],[75,"374","R50_80285"],[75,"474","R50_82292"],[75,"574","R50_80027"],[75,"614","R50_82651"],[75,"674","R50_80028"],[75,"774","R50_80029"],[75,"874","R50_80030"],[75,"914","R50_80258"],[75,"974","R50_80122"],[75,"1014","R50_80224"],[75,"1048","R50_80085"],[75,"1074","R50_80193"],[75,"1114","R50_81555"],[75,"1148","R50_80031"],[75,"1174","R50_80196"],[75,"1248","R50_81272"],[75,"1348","R50_80032"],[75,"1448","R50_81077"],[75,"1548","R50_80086"],[76,"189x574x25","R50_50172"],[76,"189x674x25","R50_50173"],[76,"189x774x25","R50_50174"],[76,"189x874x25","R50_50175"],[76,"189x914x25","R50_50257"],[76,"189x950x25","R50_50255"],[76,"189x974x25","R50_50177"],[76,"189x1050x25","R50_50232"],[76,"189x1074x25","R50_50178"],[76,"189x1174x25","R50_50179"],[76,"189x1350x25","R50_50220"],[76,"265x574x25","R50_50183"],[76,"265x674x25","R50_50184"],[76,"265x774x25","R50_50185"],[76,"265x874x25","R50_50186"],[76,"265x914x25","R50_50258"],[76,"265x950x25","R50_50256"],[76,"265x974x25","R50_50188"],[76,"265x1050x25","R50_50233"],[76,"265x1074x25","R50_50189"],[76,"265x1174x25","R50_50190"],[76,"265x1350x25","R50_50223"],[76,"665x69x45","R50_82363"],[76,"900x69x45","R50_81209"],[76,"1000x69x45","R50_81116"],[76,"1110x69x45","R50_82424"],[76,"1250x69x45","R50_81117"],[76,"1333x69x45","R50_81119"],[76,"1666x69x45","R50_81120"],[76,"2000x69x45","R50_81121"],[76,"2250x69x45","R50_81122"],[76,"2500x69x45","R50_81123"],[76,"2666x69x45","R50_81125"],[76,"2700x69x45","R50_81126"],[76,"3000x69x45","R50_81127"],[77,"1000x105","A50_80814"],[77,"1100x105","R50_82303"],[77,"1250x105","A50_80815"],[77,"1333x105","A50_82070"],[77,"1665x105","A50_80817"],[77,"1975x105","R50_82520"],[77,"2000x105","A50_80818"],[77,"2250x105","A50_80902"],[77,"2333x105","R50_81957"],[77,"2475x105","R50_82521"],[77,"2500x105","A50_80903"],[77,"2666x105","A50_82121"],[77,"2975x105","R50_82522"],[77,"3000x105","A50_80820"],[77,"4200x105","R50_80922"],[77,"4300x105","R50_80923"],[77,"4700x105","R50_80924"],[77,"1000x190","A50_80923"],[77,"1110x190","R50_82351"],[77,"1250x190","A50_80924"],[77,"1333x190","A50_82124"],[77,"1665x190","A50_81037"],[77,"2000x190","A50_80904"],[77,"2250x190","A50_80928"],[77,"2500x190","A50_81824"],[77,"2666x190","A50_82131"],[77,"3000x190","A50_80822"],[77,"1000x125","A50_80823"],[77,"1110x125","R50_82309"],[77,"1250x125","A50_80824"],[77,"1330x125","A50_80825"],[77,"1333x125","A50_82091"],[77,"1665x125","A50_80826"],[77,"1975x125","R50_82529"],[77,"2000x125","A50_80827"],[77,"2250x125","A50_80905"],[77,"2333x125","R50_81961"],[77,"2475x125","R50_82530"],[77,"2500x125","A50_80906"],[77,"2660x125","A50_80828"],[77,"2666x125","A50_82092"],[77,"2975x125","R50_82531"],[77,"3000x125","A50_80829"],[77,"4200x125","R50_80949"],[77,"4300x125","R50_80950"],[77,"4700x125","R50_80951"],[78,"1000x70x105","R50_82555"],[78,"2000x70x105","R50_80579"],[78,"2250x70x105","R50_81085"],[78,"2666x70x105","R50_81296"],[78,"3000x70x105","R50_80580"],[78,"1000x70x125","R50_82552"],[78,"2000x70x125","R50_80574"],[78,"2250x70x125","R50_81082"],[78,"2666x70x125","R50_81293"],[78,"3000x70x125","R50_80573"],[78,"900x78x62","R50_81736"],[78,"1333x78x62","R50_82359"],[78,"2000x78x62","R50_81220"],[78,"2250x78x62","R50_81712"],[78,"2500x78x62","R50_82347"],[78,"2666x78x62","R50_81227"],[78,"3000x78x62","R50_81229"],[78,"900x82x62","R50_81735"],[78,"1333x82x62","R50_82358"],[78,"2000x82x62","R50_81219"],[78,"2250x82x62","R50_81711"],[78,"2500x82x62","R50_82346"],[78,"2666x82x62","R50_81226"],[78,"3000x82x62","R50_81228"],[79,"1000x125","A50_81964"],[79,"1110x125","R50_81477"],[79,"1250x125","A50_81965"],[79,"1333x125","A50_82565"],[79,"1665x125","A50_81967"],[79,"2000x125","A50_81290"],[79,"2250x125","A50_81291"],[79,"2333x125","R50_81964"],[79,"2500x125","A50_81292"],[79,"2666x125","A50_82331"],[79,"3000x125","A50_81294"],[79,"1000x215","A50_81968"],[79,"1250x215","A50_81969"],[79,"1333x215","R50_82221"],[79,"1665x215","R50_81427"],[79,"2000x215","R50_80784"],[79,"2250x215","R50_81428"],[79,"25x2500x215","A50_81297"],[79,"2666x215","R50_80785"],[79,"3000x215","R50_80628"],[79,"1000x150","A50_81972"],[79,"1110x125","R50_81476"],[79,"1250x150","A50_81973"],[79,"1333x150","A50_82474"],[79,"1665x150","A50_81975"],[79,"2000x150","A50_81300"],[79,"2250x150","A50_81301"],[79,"25x2500x150","A50_81302"],[79,"2666x150","A50_82334"],[79,"3000x150","A50_81304"],[79,"2500x215","A50_81297"],[79,"2500x150","A50_81302"],[80,"50x105x100","R50_81162"],[80,"50x105x100","R50_81861"],[80,"50x105x100","R50_81862"],[80,"50x105x200","R50_80263"],[80,"50x105x200","R50_80264"],[80,"2000x125x200","R50_80217"],[80,"2666x125x200","R50_80219"],[80,"3000x125x200","R50_80788"],[81,"55","R50_93288"],[81,"1000x40x35","A50_82595"],[81,"1250x40x35","A50_82596"],[81,"1333x40x35","A50_82597"],[81,"1666x40x35","A50_82598"],[81,"2000x40x35","A50_80645"],[81,"2200x40x35","R50_81115"],[81,"2250x40x35","A50_82599"],[81,"2500x40x35","A50_82600"],[81,"2666x40x35","A50_82601"],[81,"3000x40x35","A50_80647"],[81,"2000x40x70","R50_81263"],[81,"2666x40x70","R50_81264"],[81,"3000x40x70","R50_81247"],[82,"1000","R50_91372"],[82,"1333","R50_93295"],[82,"2000","R50_91351"],[82,"2250","R50_91900"],[82,"2666","R50_91543"],[82,"3000","R50_91269"],[82,"2000x65x60","R50_91433"],[82,"2250x65x60","R50_93551"],[82,"2500x65x60","R50_93552"],[82,"2660x65x60","R50_91588"],[82,"2666x65x60","R50_91434"],[82,"3000x65x60","R50_91435"],[82,"1000x25","R50_81053"],[82,"50x1110x25","R50_81492"],[82,"1250x25","R50_81054"],[82,"1666x25","R50_81056"],[82,"2000x25","R50_81057"],[82,"2250x25","R50_81058"],[82,"2500x25","R50_81059"],[82,"2666x25","R50_81060"],[82,"3000x25","R50_81061"],[82,"80x54x57","R50_81063"],[82,"1110x25","R50_81492"],[83,"50x40","R50_60667"],[83,"50x574","R50_80808"],[83,"50x674","R50_80809"],[83,"774","R50_80810"],[83,"874","R50_80811"],[83,"974","R50_80812"],[83,"1074","R50_80813"],[83,"1174","R50_81793"],[83,"50","R50_82254"],[83,"574","R50_80808"],[83,"674","R50_80809"],[84,"290","A50_90366"],[84,"390","A50_90234"],[84,"490","A50_90235"],[84,"590","A50_90220"],[84,"690","A50_90236"],[84,"790","A50_90237"],[84,"890","R50_90297"],[84,"574x50","R50_91423"],[84,"674x50","R50_91368"],[84,"774x50","R50_91358"],[84,"874x50","R50_91424"],[84,"92242x974x50","R50_91361"],[84,"1050x50","R50_91535"],[84,"1074x50","R50_91441"],[84,"91565x1174x50","R50_91578"],[84,"1350x50","R50_91320"],[84,"1530x50","R50_91380"],[84,"1550x50","R50_93398"],[84,"400x620","R50_91296"],[84,"500x720","R50_91297"],[84,"500x820","R50_91484"],[84,"500x920","R50_91306"],[84,"600x520","R50_91832"],[84,"600x620","R50_91298"],[84,"600x720","R50_91299"],[84,"600x820","R50_91546"],[84,"600x920","R50_91308"],[84,"800x520","R50_92052"],[84,"800x820","R50_91485"],[84,"800x920","R50_91300"],[84,"900x620","R50_91301"],[84,"900x720","R50_91302"],[84,"900x920","R50_91307"],[84,"974x50","R50_91361"],[84,"1174x50","R50_91578"],[85,"574x150","R50_92880"],[85,"674x150","R50_92881"],[85,"774x150","R50_92882"],[85,"874x150","R50_92883"],[85,"974x150","R50_92884"],[85,"1050x150","R50_92885"],[85,"1074x150","R50_92886"],[85,"1174x150","R50_92887"],[85,"55x1000","R50_81759"],[85,"55x1250","R50_81760"],[85,"1333","R50_81761"],[85,"1666","R50_81762"],[85,"2000","R50_81763"],[85,"2250","R50_81764"],[86,"55x55x300","R50_90608"],[86,"70x250x335","R50_93269"],[86,"120x335x350","R50_81376"],[86,"1000","R50_81759"],[86,"1250","R50_81760"],[86,"1333","R50_81761"],[86,"1666","R50_81762"],[86,"2000","R50_81763"],[86,"2250","R50_81764"],[87,"120","A50_90108"],[87,"400","R50_91479"],[87,"175","R50_82422"],[88,"1000","R50_80711"],[88,"1250","R50_80712"],[88,"1333","R50_80713"],[88,"1665","R50_80714"],[88,"2000","R50_80715"],[88,"2250","R50_80716"],[88,"2500","R50_80717"],[88,"2666","R50_80718"],[88,"3000","R50_80719"],[88,"1333","A50_90116"],[88,"2000","A50_90117"],[88,"3000","A50_83987"],[89,"55","R50_93623"],[89,"55","R50_92996"],[89,"55","R50_93486"],[89,"55","R50_92997"],[89,"55","R50_92998"],[89,"55","R50_92999"],[89,"55","R50_93000"],[89,"55","R50_93001"],[89,"55","R50_93624"],[89,"55","R50_93002"],[89,"55","R50_93330"],[90,"270","R50_30138"],[90,"50x370","A50_30087"],[90,"470","A50_30076"],[90,"570","A50_30077"],[90,"670","A50_30078"],[90,"770","A50_30079"],[90,"870","A50_30080"],[90,"970","A50_30086"],[90,"1400","R50_81740"],[90,"1500","R50_81741"],[90,"1600","R50_82717"],[90,"1750","R50_81234"],[90,"2100","R50_81348"],[90,"2250","R50_81742"],[90,"2300","R50_81502"],[90,"2500","R50_81743"],[90,"2700","R50_82070"],[90,"3000","R50_81744"],[90,"3100","R50_82692"],[90,"3500","R50_81745"],[90,"4000","R50_81746"],[90,"4200","R50_81507"],[90,"4500","R50_81747"],[90,"5000","R50_81748"],[90,"5500","R50_80733"],[90,"50x2","A50_81760"],[90,"50x2","A50_80460"],[90,"370","A50_30087"],[90,"1","A50_81759"],[90,"2","A50_81760"],[90,"1","A50_80459"],[90,"2","A50_80460"],[91,"30","R50_81453"],[91,"30","R50_81685"],[91,"30","R50_80776"],[91,"30","R50_80871"],[91,"30","R50_81072"],[91,"30","R50_80037"],[91,"30","R50_80847"],[91,"30","R50_81276"],[91,"30","R50_80038"],[91,"30","R50_81076"],[91,"30","R50_80210"],[91,"30","A50_80382"],[91,"30","R50_80677"],[91,"49x70x124","R50_81156"],[91,"470x140","A50_10181"],[91,"570x140","A50_10182"],[91,"670x140","A50_10183"],[92,"600","R50_81010"],[92,"700","R50_81068"],[92,"40x800","R50_81013"],[92,"950","R50_81279"],[92,"1050","R50_81659"],[92,"1150","R50_81660"],[92,"1350","R50_81661"],[92,"1550","R50_81662"],[92,"800","R50_81013"],[93,"189x950x25","R50_50255"],[93,"189x1050x25","R50_50232"],[93,"265x950x25","R50_50256"],[93,"265x1050x25","R50_50233"],[94,"40x60x100","R50_82290"],[94,"40x60x100","R50_80213"],[94,"40x60x100","R50_80280"],[94,"40x100x200","R50_80387"],[94,"40x100x200","R50_80388"],[94,"40x100x200","R50_80389"],[94,"40x100x300","R50_82062"],[94,"40x100x300","R50_80293"],[94,"40x100x400","R50_81224"],[94,"40x100x400","R50_81137"],[94,"40x100x400","R50_81225"],[94,"40x100x400","R50_80294"]]};
+(function(){
+"use strict";
+
+// ---------------- Storage helpers (localStorage with in-memory fallback) ----------------
+const LS_KEY = "eqtrack:items:v1";
+const LS_KEY_STORES = "eqtrack:stores:v1";
+const LS_KEY_APIKEY = "eqtrack:apikey:v1";
+const memStore = {};
+let storageWarned = false;
+function lsGet(k){
+  if(Object.prototype.hasOwnProperty.call(memStore, k)) return memStore[k];
+  try{ return localStorage.getItem(k); }catch(e){ return null; }
+}
+function lsSet(k, v){
+  try{ localStorage.setItem(k, v); delete memStore[k]; return true; }
+  catch(e){ memStore[k] = v; return false; }
+}
+function loadItems(){
+  try{ return JSON.parse(lsGet(LS_KEY) || "[]"); }catch(e){ return []; }
+}
+function saveItems(items){
+  if(!lsSet(LS_KEY, JSON.stringify(items)) && !storageWarned){
+    storageWarned = true;
+    toast("Память устройства недоступна — данные сохранятся только до закрытия приложения");
+  }
+}
+function loadStores(){
+  try{ return JSON.parse(lsGet(LS_KEY_STORES) || "[]"); }catch(e){ return []; }
+}
+function rememberStore(name){
+  if(!name) return;
+  const stores = loadStores();
+  if(!stores.includes(name)){
+    stores.unshift(name);
+    lsSet(LS_KEY_STORES, JSON.stringify(stores.slice(0,20)));
+  }
+}
+function getApiKey(){ return lsGet(LS_KEY_APIKEY) || ""; }
+function setApiKey(k){ lsSet(LS_KEY_APIKEY, k || ""); }
+
+// ---------------- Catalog ----------------
+const CATALOG = window.__CATALOG__; // {names:[...], rows:[[nameIdx, "LxPxH", code], ...]}
+
+function catalogRowsForName(name){
+  const idx = CATALOG.names.indexOf(name);
+  if(idx === -1) return [];
+  return CATALOG.rows.filter(r => r[0] === idx);
+}
+
+function dimsDistance(dimsStr, L, P, H){
+  const parts = dimsStr.split('x').map(Number);
+  const target = [L,P,H].filter(v => v !== null && v !== undefined && v !== "" && !isNaN(v)).map(Number);
+  if(target.length === 0) return 0;
+  // compare against however many parts exist, aligned from the right (last dims are usually height)
+  let sum = 0, count = 0;
+  const a = parts.slice().reverse();
+  const b = target.slice().reverse();
+  for(let i=0;i<Math.max(a.length,b.length);i++){
+    const x = a[i], y = b[i];
+    if(x === undefined || y === undefined) continue;
+    sum += Math.abs(x - y);
+    count++;
+  }
+  return count ? sum : 999999;
+}
+
+function findBestCodes(name, L, P, H, limit){
+  const rows = catalogRowsForName(name);
+  if(rows.length === 0) return [];
+  const scored = rows.map(r => ({ dims: r[1], code: r[2], dist: dimsDistance(r[1], L, P, H) }));
+  scored.sort((a,b) => a.dist - b.dist);
+  return scored.slice(0, limit || 5);
+}
+
+function fuzzyMatchCatalogName(candidate){
+  if(!candidate) return null;
+  const c = candidate.toLowerCase();
+  let best = null, bestScore = 0;
+  CATALOG.names.forEach(n => {
+    const nl = n.toLowerCase();
+    if(nl === c) { best = n; bestScore = 999; return; }
+    const wordsA = new Set(c.split(/\s+/).filter(w=>w.length>3));
+    const wordsB = new Set(nl.split(/\s+/).filter(w=>w.length>3));
+    let overlap = 0;
+    wordsA.forEach(w => { if(wordsB.has(w)) overlap++; });
+    if(overlap > bestScore){ bestScore = overlap; best = n; }
+  });
+  return bestScore > 0 ? best : null;
+}
+
+// ---------------- Catalog search (all words must match, any order) ----------------
+function normalize(s){ return String(s || "").toLowerCase().replace(/ё/g, "е"); }
+let CATALOG_HAY = null;
+function searchCatalog(query, limit){
+  const tokens = normalize(query).split(/\s+/).filter(Boolean);
+  if(!tokens.length) return [];
+  if(!CATALOG_HAY){
+    CATALOG_HAY = CATALOG.rows.map(r =>
+      normalize(CATALOG.names[r[0]]) + " " + normalize(r[2]) + " " + r[1].replace(/x/g, " ") + " " + r[1]);
+  }
+  const out = [];
+  for(let i = 0; i < CATALOG.rows.length && out.length < (limit || 40); i++){
+    const hay = CATALOG_HAY[i];
+    if(tokens.every(t => hay.includes(t))){
+      const r = CATALOG.rows[i];
+      out.push({ name: CATALOG.names[r[0]], dims: r[1], code: r[2] });
+    }
+  }
+  return out;
+}
+
+function startFromCatalog(name, dims, code){
+  resetAddForm();
+  document.getElementById("f-name").value = name;
+  document.getElementById("f-code").value = code;
+  const p = String(dims || "").split("x");
+  if(p[0]) document.getElementById("f-dim-l").value = p[0];
+  if(p[1]) document.getElementById("f-dim-p").value = p[1];
+  if(p[2]) document.getElementById("f-dim-h").value = p[2];
+  showView("add");
+}
+
+function renderCatalogHits(){
+  const wrap = document.getElementById("catalog-hits");
+  if(!wrap) return 0;
+  if(normalize(searchQuery).trim().length < 2){ wrap.innerHTML = ""; return 0; }
+  const hits = searchCatalog(searchQuery, 40);
+  if(!hits.length){ wrap.innerHTML = ""; return 0; }
+  wrap.innerHTML = `<div class="section-label">Найдено в каталоге${hits.length >= 40 ? " (первые 40)" : ""}</div>` +
+    hits.map(r => `
+      <div class="eq-card hit" data-name="${escapeHtml(r.name)}" data-dims="${escapeHtml(r.dims)}" data-code="${escapeHtml(r.code)}">
+        <div class="info">
+          <div class="name">${escapeHtml(r.name)}</div>
+          <div class="meta mono">${escapeHtml(r.code)} · ${r.dims.replace(/x/g, " × ")} мм</div>
+        </div>
+        <div class="hit-add">+</div>
+      </div>`).join("");
+  wrap.querySelectorAll(".hit").forEach(el => {
+    el.addEventListener("click", () => startFromCatalog(el.dataset.name, el.dataset.dims, el.dataset.code));
+  });
+  return hits.length;
+}
+
+// ---------------- Navigation ----------------
+const views = ["list","add","settings","detail"];
+let currentDetailId = null;
+let capturedPhoto = null; // dataURL (resized)
+let capturedPhotoFull = null; // slightly larger version sent to AI
+let chosenCode = "";
+let editingId = null; // if set, add-view is editing existing item
+
+function showView(name){
+  views.forEach(v => {
+    document.getElementById("view-"+v).hidden = (v !== name);
+  });
+  document.getElementById("bottombar-list").hidden = (name !== "list");
+  document.getElementById("bottombar-add").hidden = (name !== "add");
+  window.scrollTo(0,0);
+}
+
+// ---------------- Toast ----------------
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 2200);
+}
+
+// ---------------- List rendering ----------------
+const STATUS_LABELS = { in_use: "В эксплуатации", warehouse: "На складе", repair: "Требует ремонта" };
+let currentStatusFilter = "all";
+let currentStoreFilter = null;
+let searchQuery = "";
+
+function renderStoreChips(){
+  const items = loadItems();
+  const stores = [...new Set(items.map(i => i.store).filter(Boolean))];
+  const wrap = document.getElementById("filter-store-chips");
+  if(stores.length === 0){ wrap.innerHTML = ""; return; }
+  let html = `<div class="chip ${currentStoreFilter===null?'active':''}" data-store="">Все магазины</div>`;
+  stores.forEach(s => {
+    html += `<div class="chip ${currentStoreFilter===s?'active':''}" data-store="${escapeHtml(s)}">${escapeHtml(s)}</div>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll(".chip").forEach(ch => {
+    ch.addEventListener("click", () => {
+      currentStoreFilter = ch.dataset.store || null;
+      renderStoreChips();
+      renderList();
+    });
+  });
+}
+
+function escapeHtml(s){
+  return String(s || "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+function renderStats(items){
+  const total = items.length;
+  const qty = items.reduce((s,i) => s + (parseInt(i.qty)||1), 0);
+  const repair = items.filter(i => i.status === "repair").length;
+  document.getElementById("stat-row").innerHTML = `
+    <div class="stat-box"><div class="n">${total}</div><div class="l">Позиций</div></div>
+    <div class="stat-box"><div class="n">${qty}</div><div class="l">Единиц</div></div>
+    <div class="stat-box"><div class="n" style="color:${repair>0?'var(--warn)':'inherit'}">${repair}</div><div class="l">В ремонте</div></div>
+  `;
+}
+
+function renderList(){
+  const hitCount = renderCatalogHits();
+  const all = loadItems();
+  renderStats(all);
+  let items = all;
+  if(currentStatusFilter !== "all") items = items.filter(i => i.status === currentStatusFilter);
+  if(currentStoreFilter) items = items.filter(i => i.store === currentStoreFilter);
+  if(searchQuery){
+    const q = searchQuery.toLowerCase();
+    items = items.filter(i =>
+      (i.name||"").toLowerCase().includes(q) ||
+      (i.code||"").toLowerCase().includes(q) ||
+      (i.store||"").toLowerCase().includes(q) ||
+      (i.zone||"").toLowerCase().includes(q)
+    );
+  }
+  items = items.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+
+  document.getElementById("list-sub").textContent = `${all.length} ${pluralPos(all.length)}`;
+  const listEl = document.getElementById("eq-list");
+  const emptyEl = document.getElementById("empty-state");
+
+  if(items.length === 0){
+    listEl.innerHTML = "";
+    if(searchQuery && hitCount > 0){ emptyEl.hidden = true; return; }
+    emptyEl.hidden = false;
+    if(all.length > 0){
+      emptyEl.querySelector("h3").textContent = "Ничего не найдено";
+      emptyEl.querySelector("p").textContent = "Измените поиск или фильтры";
+      emptyEl.querySelector(".big").textContent = "🔍";
+    } else {
+      emptyEl.querySelector("h3").textContent = "Список пуст";
+      emptyEl.querySelector("p").textContent = "Сфотографируйте оборудование — приложение определит тип, габариты и номер по каталогу.";
+      emptyEl.querySelector(".big").textContent = "📦";
+    }
+    return;
+  }
+  emptyEl.hidden = true;
+
+  listEl.innerHTML = items.map(item => `
+    <div class="eq-card" data-id="${item.id}">
+      ${item.photo ? `<img class="thumb" src="${item.photo}">` : `<div class="thumb placeholder">📦</div>`}
+      <div class="info">
+        <div class="name">${escapeHtml(item.name || "Без названия")}</div>
+        <div class="meta">
+          <span>${escapeHtml(item.store || "Без магазина")}</span>
+          ${item.dimL||item.dimP||item.dimH ? ` · <span>${item.dimL||"–"}×${item.dimP||"–"}×${item.dimH||"–"} мм</span>` : ""}
+          ${item.qty > 1 ? ` · <span>${item.qty} шт.</span>` : ""}
+        </div>
+        <div class="row2">
+          ${item.code ? `<span class="code-tag mono">${escapeHtml(item.code)}</span>` : `<span class="code-tag" style="color:var(--text-dim)">без номера</span>`}
+          <span class="status-pill status-${item.status}">${STATUS_LABELS[item.status]||item.status}</span>
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  listEl.querySelectorAll(".eq-card").forEach(card => {
+    card.addEventListener("click", () => openDetail(card.dataset.id));
+  });
+}
+
+function pluralPos(n){
+  const mod10 = n % 10, mod100 = n % 100;
+  if(mod100 >= 11 && mod100 <= 14) return "позиций";
+  if(mod10 === 1) return "позиция";
+  if(mod10 >= 2 && mod10 <= 4) return "позиции";
+  return "позиций";
+}
+
+// ---------------- Detail view ----------------
+function openDetail(id){
+  const items = loadItems();
+  const item = items.find(i => i.id === id);
+  if(!item) return;
+  currentDetailId = id;
+  const html = `
+    ${item.photo ? `<img src="${item.photo}" style="width:100%;border-radius:10px;margin-bottom:16px;">` : ""}
+    <div class="section-label">Тип оборудования</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:14px;">${escapeHtml(item.name||"—")}</div>
+
+    <div class="stat-row">
+      <div class="stat-box"><div class="n mono" style="font-size:15px">${item.dimL||"–"}</div><div class="l">Ш, мм</div></div>
+      <div class="stat-box"><div class="n mono" style="font-size:15px">${item.dimP||"–"}</div><div class="l">Г, мм</div></div>
+      <div class="stat-box"><div class="n mono" style="font-size:15px">${item.dimH||"–"}</div><div class="l">В, мм</div></div>
+    </div>
+
+    <div class="section-label">Заводской номер</div>
+    <div class="mono" style="font-size:15px;margin-bottom:14px;">${escapeHtml(item.code||"не определён")}</div>
+
+    <div class="section-label">Магазин / адрес</div>
+    <div style="margin-bottom:14px;">${escapeHtml(item.store||"—")}</div>
+
+    <div class="section-label">Зона / категория</div>
+    <div style="margin-bottom:14px;">${escapeHtml(item.zone||"—")}</div>
+
+    <div class="section-label">Количество и статус</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <span>${item.qty||1} шт.</span>
+      <span class="status-pill status-${item.status}">${STATUS_LABELS[item.status]||item.status}</span>
+    </div>
+
+    ${item.comment ? `<div class="section-label">Комментарий</div><div style="margin-bottom:14px;">${escapeHtml(item.comment)}</div>` : ""}
+
+    <div class="section-label">Добавлено</div>
+    <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px;">${new Date(item.createdAt).toLocaleString("ru-RU")}</div>
+
+    <button class="btn btn-outline btn-block" id="btn-edit-item">Редактировать</button>
+  `;
+  document.getElementById("detail-content").innerHTML = html;
+  document.getElementById("btn-edit-item").addEventListener("click", () => openEdit(item));
+  showView("detail");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("btn-detail-back").addEventListener("click", () => { showView("list"); renderList(); });
+  document.getElementById("btn-detail-delete").addEventListener("click", () => {
+    if(!currentDetailId) return;
+    if(!confirm("Удалить эту позицию?")) return;
+    let items = loadItems();
+    items = items.filter(i => i.id !== currentDetailId);
+    saveItems(items);
+    toast("Позиция удалена");
+    showView("list");
+    renderList();
+    renderStoreChips();
+  });
+});
+
+// ---------------- Add / edit flow ----------------
+function resetAddForm(){
+  capturedPhoto = null;
+  capturedPhotoFull = null;
+  chosenCode = "";
+  editingId = null;
+  document.getElementById("photo-placeholder").hidden = false;
+  document.getElementById("photo-preview").hidden = true;
+  document.getElementById("btn-retake").hidden = true;
+  document.getElementById("analyzing-row").hidden = true;
+  document.getElementById("match-card").hidden = true;
+  document.getElementById("no-key-notice").hidden = getApiKey() ? true : false;
+  document.getElementById("f-name").value = "";
+  document.getElementById("f-dim-l").value = "";
+  document.getElementById("f-dim-p").value = "";
+  document.getElementById("f-dim-h").value = "";
+  document.getElementById("f-code").value = "";
+  document.getElementById("f-store").value = "";
+  document.getElementById("f-zone").value = "";
+  document.getElementById("f-qty").value = "1";
+  document.getElementById("f-comment").value = "";
+  setStatusSelect("in_use");
+}
+
+function openEdit(item){
+  resetAddForm();
+  editingId = item.id;
+  if(item.photo){
+    capturedPhoto = item.photo;
+    document.getElementById("photo-placeholder").hidden = true;
+    document.getElementById("photo-preview").hidden = false;
+    document.getElementById("photo-preview").src = item.photo;
+    document.getElementById("btn-retake").hidden = false;
+  }
+  document.getElementById("f-name").value = item.name || "";
+  document.getElementById("f-dim-l").value = item.dimL || "";
+  document.getElementById("f-dim-p").value = item.dimP || "";
+  document.getElementById("f-dim-h").value = item.dimH || "";
+  document.getElementById("f-code").value = item.code || "";
+  document.getElementById("f-store").value = item.store || "";
+  document.getElementById("f-zone").value = item.zone || "";
+  document.getElementById("f-qty").value = item.qty || 1;
+  document.getElementById("f-comment").value = item.comment || "";
+  setStatusSelect(item.status || "in_use");
+  document.getElementById("no-key-notice").hidden = true;
+  showView("add");
+}
+
+function setStatusSelect(status){
+  document.querySelectorAll(".status-opt").forEach(o => {
+    o.classList.toggle("selected", o.dataset.s === status);
+  });
+}
+
+function getSelectedStatus(){
+  const sel = document.querySelector(".status-opt.selected");
+  return sel ? sel.dataset.s : "in_use";
+}
+
+function saveEquipment(){
+  const name = document.getElementById("f-name").value.trim();
+  if(!name){
+    toast("Укажите тип оборудования");
+    return;
+  }
+  const store = document.getElementById("f-store").value.trim();
+  const item = {
+    id: editingId || ("eq_" + Date.now() + "_" + Math.random().toString(36).slice(2,8)),
+    name,
+    dimL: document.getElementById("f-dim-l").value.trim(),
+    dimP: document.getElementById("f-dim-p").value.trim(),
+    dimH: document.getElementById("f-dim-h").value.trim(),
+    code: document.getElementById("f-code").value.trim(),
+    store,
+    zone: document.getElementById("f-zone").value.trim(),
+    qty: parseInt(document.getElementById("f-qty").value) || 1,
+    status: getSelectedStatus(),
+    comment: document.getElementById("f-comment").value.trim(),
+    photo: capturedPhoto || null,
+    createdAt: editingId ? (loadItems().find(i=>i.id===editingId)||{}).createdAt || Date.now() : Date.now()
+  };
+  let items = loadItems();
+  if(editingId){
+    items = items.map(i => i.id === editingId ? item : i);
+  } else {
+    items.unshift(item);
+  }
+  saveItems(items);
+  rememberStore(store);
+  toast(editingId ? "Изменения сохранены" : "Оборудование добавлено");
+  showView("list");
+  renderList();
+  renderStoreChips();
+}
+
+// ---------------- Photo capture + resize ----------------
+function resizeImage(file, maxDim, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+        else if(h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality || 0.7));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("photo-frame").addEventListener("click", (e) => {
+    if(e.target.id === "btn-retake") return;
+    document.getElementById("camera-input").click();
+  });
+  document.getElementById("btn-retake").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("camera-input").click();
+  });
+
+  document.getElementById("camera-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const [thumb, forAi] = await Promise.all([
+      resizeImage(file, 640, 0.7),
+      resizeImage(file, 1024, 0.75)
+    ]);
+    capturedPhoto = thumb;
+    capturedPhotoFull = forAi;
+    document.getElementById("photo-placeholder").hidden = true;
+    document.getElementById("photo-preview").hidden = false;
+    document.getElementById("photo-preview").src = thumb;
+    document.getElementById("btn-retake").hidden = false;
+    document.getElementById("match-card").hidden = true;
+
+    if(getApiKey()){
+      runRecognition(forAi);
+    } else {
+      document.getElementById("no-key-notice").hidden = false;
+    }
+  });
+});
+
+// ---------------- AI recognition ----------------
+async function runRecognition(photoDataUrl){
+  const analyzingRow = document.getElementById("analyzing-row");
+  analyzingRow.hidden = false;
+  document.getElementById("analyzing-text").textContent = "Определяю тип и размеры…";
+  try{
+    const base64 = photoDataUrl.split(",")[1];
+    const namesList = CATALOG.names.join(" | ");
+    const prompt = `Ты помогаешь определить тип торгового оборудования (стеллажи, гондолы ИТАБ F50 и комплектующие) по фотографии для системы учёта.
+Вот список известных типов оборудования из каталога (выбирай ТОЛЬКО из этого списка, если что-то подходит; если ничего не подходит хорошо — верни null):
+${namesList}
+
+Проанализируй фото и верни СТРОГО JSON без пояснений и без markdown-разметки, в формате:
+{"matched_name": "<точное название из списка или null>", "confidence": "low|medium|high", "estimated_L_mm": <число или null>, "estimated_P_mm": <число или null>, "estimated_H_mm": <число или null>, "notes": "<краткая заметка на русском о том, что видно на фото и на чём основана оценка размеров>"}
+
+Ш (L), Г (P), В (H) — примерные габариты в миллиметрах, оцененные по пропорциям и типовым размерам подобного оборудования. Если оценить размер невозможно — верни null для этого поля.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": getApiKey(),
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            { type: "text", text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if(!response.ok){
+      const errText = await response.text();
+      throw new Error("API вернул ошибку " + response.status + ": " + errText.slice(0,200));
+    }
+    const data = await response.json();
+    const textBlock = (data.content || []).find(b => b.type === "text");
+    if(!textBlock) throw new Error("Пустой ответ модели");
+    let clean = textBlock.text.trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+    const parsed = JSON.parse(clean);
+
+    applyRecognitionResult(parsed);
+  }catch(err){
+    console.error(err);
+    toast("Не удалось распознать: " + err.message.slice(0,80));
+  }finally{
+    analyzingRow.hidden = true;
+  }
+}
+
+function applyRecognitionResult(parsed){
+  let matchedName = parsed.matched_name;
+  if(matchedName && !CATALOG.names.includes(matchedName)){
+    matchedName = fuzzyMatchCatalogName(matchedName);
+  }
+  const L = parsed.estimated_L_mm, P = parsed.estimated_P_mm, H = parsed.estimated_H_mm;
+
+  if(matchedName){
+    document.getElementById("f-name").value = matchedName;
+  }
+  if(L) document.getElementById("f-dim-l").value = L;
+  if(P) document.getElementById("f-dim-p").value = P;
+  if(H) document.getElementById("f-dim-h").value = H;
+
+  const matchCard = document.getElementById("match-card");
+  if(matchedName){
+    const candidates = findBestCodes(matchedName, L, P, H, 3);
+    document.getElementById("match-name").textContent = matchedName;
+    if(candidates.length){
+      document.getElementById("f-code").value = candidates[0].code;
+      chosenCode = candidates[0].code;
+      document.getElementById("match-code").textContent = candidates[0].code + " · " + candidates[0].dims.replace(/x/g," × ") + " мм";
+      document.getElementById("candidate-list").innerHTML = candidates.map((c,i) => `
+        <div class="candidate ${i===0?'chosen':''}" data-code="${escapeHtml(c.code)}" data-name="${escapeHtml(matchedName)}">
+          <span class="mono">${escapeHtml(c.code)}</span>
+          <span class="cdims">${c.dims.replace(/x/g," × ")} мм</span>
+        </div>
+      `).join("");
+      document.getElementById("candidate-list").querySelectorAll(".candidate").forEach(c => {
+        c.addEventListener("click", () => {
+          document.getElementById("f-code").value = c.dataset.code;
+          document.getElementById("candidate-list").querySelectorAll(".candidate").forEach(x=>x.classList.remove("chosen"));
+          c.classList.add("chosen");
+        });
+      });
+    } else {
+      document.getElementById("match-code").textContent = "точный номер по каталогу не найден — уточните вручную";
+      document.getElementById("candidate-list").innerHTML = "";
+    }
+    matchCard.hidden = false;
+  } else {
+    matchCard.hidden = true;
+    toast("Тип не найден в каталоге — заполните вручную");
+  }
+
+  if(parsed.notes){
+    const commentField = document.getElementById("f-comment");
+    if(!commentField.value) commentField.value = "AI: " + parsed.notes;
+  }
+}
+
+// ---------------- Manual catalog picker ----------------
+function openCatalogPicker(){
+  document.getElementById("catalog-sheet").hidden = false;
+  document.getElementById("catalog-search").value = "";
+  renderCatalogResults("");
+  setTimeout(()=>document.getElementById("catalog-search").focus(), 50);
+}
+function renderCatalogResults(q){
+  const wrap = document.getElementById("catalog-results");
+  if(normalize(q).trim().length < 2){
+    wrap.innerHTML = `<div style="padding:20px 4px;color:var(--text-dim);font-size:13px;">Введите минимум 2 символа — название или код, можно несколько слов (например: полка F50 борт, или R50_10111)</div>`;
+    return;
+  }
+  const rows = searchCatalog(q, 40);
+  if(rows.length === 0){
+    wrap.innerHTML = `<div style="padding:20px 4px;color:var(--text-dim);font-size:13px;">Ничего не найдено. Попробуйте меньше слов или другой фрагмент названия.</div>`;
+    return;
+  }
+  wrap.innerHTML = rows.map(r => `
+    <div class="catalog-picker-item" data-name="${escapeHtml(r.name)}" data-dims="${escapeHtml(r.dims)}" data-code="${escapeHtml(r.code)}">
+      <div style="font-weight:600;margin-bottom:2px;">${escapeHtml(r.name)}</div>
+      <div class="mono" style="color:var(--steel);font-size:12.5px;">${escapeHtml(r.code)} · ${r.dims.replace(/x/g," × ")} мм</div>
+    </div>
+  `).join("");
+  wrap.querySelectorAll(".catalog-picker-item").forEach(el => {
+    el.addEventListener("click", () => {
+      document.getElementById("f-name").value = el.dataset.name;
+      document.getElementById("f-code").value = el.dataset.code;
+      const p = el.dataset.dims.split("x");
+      if(p[0]) document.getElementById("f-dim-l").value = p[0];
+      if(p[1]) document.getElementById("f-dim-p").value = p[1];
+      if(p[2]) document.getElementById("f-dim-h").value = p[2];
+      document.getElementById("catalog-sheet").hidden = true;
+    });
+  });
+}
+
+// ---------------- Export to Excel ----------------
+function exportToExcel(){
+  const items = loadItems();
+  if(items.length === 0){ toast("Список пуст — нечего экспортировать"); return; }
+  const rows = items.map(i => ({
+    "Тип оборудования": i.name || "",
+    "Ш, мм": i.dimL || "",
+    "Г, мм": i.dimP || "",
+    "В, мм": i.dimH || "",
+    "Заводской номер": i.code || "",
+    "Магазин / адрес": i.store || "",
+    "Зона / категория": i.zone || "",
+    "Количество": i.qty || 1,
+    "Статус": STATUS_LABELS[i.status] || i.status || "",
+    "Комментарий": i.comment || "",
+    "Добавлено": new Date(i.createdAt).toLocaleString("ru-RU")
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = [{wch:40},{wch:8},{wch:8},{wch:8},{wch:16},{wch:30},{wch:20},{wch:10},{wch:16},{wch:30},{wch:18}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Оборудование");
+  const dateStr = new Date().toISOString().slice(0,10);
+  const fname = `оборудование_${dateStr}.xlsx`;
+  const buf = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+  const file = new File([buf], fname, {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file], title: fname}).catch(()=>{});
+  } else {
+    XLSX.writeFile(wb, fname);
+  }
+}
+
+// ---------------- Wire up navigation & controls ----------------
+document.addEventListener("DOMContentLoaded", () => {
+  // datalist for catalog names (autocomplete in "Тип оборудования")
+  document.getElementById("catalog-names").innerHTML =
+    CATALOG.names.map(n => `<option value="${escapeHtml(n)}">`).join("");
+  document.getElementById("catalog-count").textContent = CATALOG.rows.length;
+
+  // list view
+  document.getElementById("btn-open-add").addEventListener("click", () => { resetAddForm(); showView("add"); });
+  document.getElementById("btn-open-settings").addEventListener("click", () => {
+    document.getElementById("f-apikey").value = getApiKey();
+    showView("settings");
+  });
+  document.getElementById("btn-export").addEventListener("click", exportToExcel);
+  document.getElementById("btn-export-2").addEventListener("click", exportToExcel);
+  ["search-input","catalog-search"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); e.target.blur(); } });
+  });
+
+  document.getElementById("search-input").addEventListener("input", (e) => {
+    searchQuery = e.target.value;
+    renderList();
+  });
+  document.getElementById("filter-status-chips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if(!chip) return;
+    currentStatusFilter = chip.dataset.status;
+    document.querySelectorAll("#filter-status-chips .chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    renderList();
+  });
+
+  // add view
+  document.getElementById("btn-add-back").addEventListener("click", () => {
+    if(confirm("Отменить добавление? Введённые данные будут потеряны.")){ showView("list"); }
+  });
+  document.getElementById("btn-cancel-add").addEventListener("click", () => {
+    if(confirm("Отменить добавление? Введённые данные будут потеряны.")){ showView("list"); }
+  });
+  document.getElementById("btn-save-eq").addEventListener("click", saveEquipment);
+  document.getElementById("btn-open-catalog").addEventListener("click", openCatalogPicker);
+
+  document.querySelectorAll(".status-opt").forEach(opt => {
+    opt.addEventListener("click", () => setStatusSelect(opt.dataset.s));
+  });
+
+  // settings view
+  document.getElementById("btn-settings-back").addEventListener("click", () => showView("list"));
+  document.getElementById("btn-save-key").addEventListener("click", () => {
+    setApiKey(document.getElementById("f-apikey").value.trim());
+    toast("Ключ сохранён на этом устройстве");
+    showView("list");
+  });
+  document.getElementById("btn-clear-all").addEventListener("click", () => {
+    if(confirm("Удалить ВСЕ позиции безвозвратно?")){
+      saveItems([]);
+      toast("Список очищен");
+      renderList();
+      renderStoreChips();
+      showView("list");
+    }
+  });
+
+  // catalog picker sheet
+  document.getElementById("catalog-sheet").addEventListener("click", (e) => {
+    if(e.target.id === "catalog-sheet") e.target.hidden = true;
+  });
+  document.getElementById("catalog-search").addEventListener("input", (e) => renderCatalogResults(e.target.value));
+
+  // store autocomplete
+  document.getElementById("store-list").innerHTML = loadStores().map(s => `<option value="${escapeHtml(s)}">`).join("");
+
+  renderStoreChips();
+  renderList();
+  showView("list");
+});
+
+})();
+
+</script>
+<script>if("serviceWorker" in navigator && location.protocol.startsWith("http")){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
+</body>
+</html>
